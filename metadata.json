@@ -1,0 +1,6 @@
+{
+  "name": "XorForm",
+  "description": "A minimalist proforma invoice generator with local history and PDF export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

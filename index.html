@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XorForm</title>
+    <script>
+      (function() {
+        // 1. Prevent common polyfills (like formdata-polyfill) from attempting to patch fetch
+        // These libraries often check if FormData is present or needs polyfilling.
+        // By ensuring FormData.prototype.keys exists, we satisfy most of their checks.
+        if (typeof window.FormData !== 'undefined' && !window.FormData.prototype.keys) {
+          try {
+            window.FormData.prototype.keys = function() { return []; };
+          } catch (e) {}
+        }
+
+        // 2. Protect window.fetch from being overwritten in read-only/locked environments.
+        // We attempt to define a setter so that even if it's "read-only", assignments to it
+        // will call our setter instead of throwing a TypeError in strict mode.
+        var _fetch = window.fetch;
+        try {
+          Object.defineProperty(window, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            get: function() { return _fetch; },
+            set: function(v) { 
+              // Silently allow assignment to our internal reference if it's a function
+              if (typeof v === 'function') {
+                _fetch = v;
+              }
+            }
+          });
+        } catch (e) {
+          // If it's already non-configurable, we can't change the getter/setter.
+          // The error "only a getter" usually means something else ALREADY defined it as such.
+          // If assignments still fail, there's little we can do on the global object itself
+          // in a locked environment, but providing this early often resolves the race condition.
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
