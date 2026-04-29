@@ -16,10 +16,19 @@ export interface CompanyInfo {
   email: string;
   phone: string;
   logo?: string;
+  logoWidth?: number;
+  logoHeight?: number;
   signature?: string;
+  signatureWidth?: number;
+  signatureHeight?: number;
   stamp?: string;
+  stampWidth?: number;
+  stampHeight?: number;
   services?: string;
   watermark?: string;
+  siret?: string;
+  siren?: string;
+  rcs?: string;
 }
 
 export interface ClientInfo {

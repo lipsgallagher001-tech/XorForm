@@ -72,6 +72,7 @@ export default function App() {
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   // Derivatives
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0), [items]);
@@ -175,8 +176,16 @@ export default function App() {
     setHistory(history.filter(p => p.id !== id));
   };
 
-  const handleExport = (p: Proforma) => {
-    generatePDF(p, companyInfo);
+  const handleExport = async (p: Proforma) => {
+    setIsGeneratingPDF(true);
+    try {
+      await generatePDF(p, companyInfo);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
   };
 
   const handleWhatsApp = (p: Proforma) => {
@@ -188,8 +197,9 @@ export default function App() {
   };
 
   const handleShare = async (p: Proforma) => {
+    setIsGeneratingPDF(true);
     try {
-      const blob = getPDFBlob(p, companyInfo);
+      const blob = await getPDFBlob(p, companyInfo);
       const filename = `${p.type.toLowerCase()}-${p.number}.pdf`;
       const file = new File([blob], filename, { type: 'application/pdf' });
 
@@ -201,12 +211,14 @@ export default function App() {
         });
       } else {
         // Fallback for browsers that don't support file sharing
-        handleExport(p);
+        await handleExport(p);
         alert("Le partage de fichiers n'est pas supporté par votre navigateur. Le fichier a été téléchargé.");
       }
     } catch (error) {
       console.error('Error sharing:', error);
-      handleExport(p);
+      await handleExport(p);
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -262,10 +274,20 @@ export default function App() {
               total,
               discountPercent
             })}
-            className="bg-app-yellow text-app-navy px-3 md:px-4 py-1.5 rounded-md text-xs md:sm font-bold shadow-sm hover:brightness-95 transition-colors flex items-center gap-2"
+            disabled={isGeneratingPDF}
+            className="bg-app-yellow text-app-navy px-3 md:px-4 py-1.5 rounded-md text-xs md:sm font-bold shadow-sm hover:brightness-95 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={14} className="md:w-4 md:h-4" />
-            <span className="hidden xs:inline uppercase tracking-wider">PDF</span>
+            {isGeneratingPDF ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-app-navy border-t-transparent rounded-full animate-spin" />
+                <span className="hidden xs:inline uppercase tracking-wider">Génération...</span>
+              </>
+            ) : (
+              <>
+                <Download size={14} className="md:w-4 md:h-4" />
+                <span className="hidden xs:inline uppercase tracking-wider">PDF</span>
+              </>
+            )}
           </button>
           <button 
             onClick={() => setShowSettings(true)}
@@ -471,7 +493,7 @@ export default function App() {
         {/* Preview Pane (Right) */}
         <section className={`flex-1 bg-app-light-blue/40 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
           {/* The "Paper" Document Container - strictly A4 ratio with better mobile scaling */}
-          <div className="w-[400px] xs:w-[500px] sm:w-full sm:max-w-[580px] h-[565px] xs:h-[707px] sm:h-[820px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 sm:p-12 flex flex-col relative overflow-hidden origin-top scale-[0.7] xs:scale-[0.75] sm:scale-90 md:scale-100 transition-transform duration-300">
+          <div className="w-full max-w-[580px] h-auto min-h-[820px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 sm:p-12 flex flex-col relative overflow-hidden transition-transform duration-300">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02] rotate-[-45deg]">
               <span className="text-6xl md:text-9xl font-black uppercase font-sans tracking-[0.2em] text-app-navy">
@@ -483,26 +505,60 @@ export default function App() {
             <div className="flex justify-between items-start mb-6">
               <div className="flex gap-2 sm:gap-4 items-start pr-2">
                 {/* Logo Box */}
-                <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
+                <div 
+                  className="flex items-start justify-center shrink-0"
+                  style={{
+                    width: companyInfo.logo ? `${(companyInfo.logoWidth || 15) * 3.78}px` : undefined,
+                    height: companyInfo.logo ? `${(companyInfo.logoHeight || 15) * 3.78}px` : undefined
+                  }}
+                >
                   {companyInfo.logo ? (
-                    <img src={companyInfo.logo} alt="Logo" className="w-full h-full object-contain" />
+                    <img 
+                      src={companyInfo.logo} 
+                      alt="Logo" 
+                      className="w-full h-full object-contain"
+                      style={{
+                        maxWidth: `${(companyInfo.logoWidth || 15) * 3.78}px`,
+                        maxHeight: `${(companyInfo.logoHeight || 15) * 3.78}px`
+                      }}
+                    />
                   ) : (
                     <div className="w-8 h-8 sm:w-10 sm:h-10 bg-app-navy flex items-center justify-center text-white rounded shadow-sm">
                       <span className="font-sans font-bold text-sm sm:text-lg">{companyInfo.name.charAt(0).toUpperCase()}</span>
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <h3 className="font-sans font-black text-sm sm:text-lg tracking-tight leading-tight mb-0.5 sm:mb-1 text-app-navy uppercase truncate">{companyInfo.name}</h3>
-                  <div className="font-sans text-[7px] sm:text-[9px] text-app-navy/60 font-medium leading-snug">
+                <div className="flex flex-col min-w-0 justify-start">
+                  <h3 className="font-sans font-black text-sm sm:text-lg tracking-tight leading-none text-app-navy uppercase truncate">{companyInfo.name}</h3>
+                  <div className="font-sans text-[7px] sm:text-[9px] text-app-navy/60 font-medium leading-snug mt-1">
                     <p className="truncate">{companyInfo.address}</p>
                     <p>{companyInfo.email}</p>
                     <p>{companyInfo.phone}</p>
                   </div>
                 </div>
               </div>
-              <div className="text-right pt-1 sm:pt-2 border-l border-app-light-blue/20 pl-2 sm:pl-4 shrink-0">
-                <h2 className="text-lg sm:text-2xl md:text-3xl font-sans font-black text-app-navy tracking-tighter uppercase leading-none">{docType}</h2>
+              <div className="text-right border-l border-app-light-blue/20 pl-2 sm:pl-4 shrink-0 flex flex-col items-end gap-1">
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-sans font-black text-app-navy tracking-tighter uppercase leading-none">{docType}</h2>
+                {/* Informations légales sous PROFORMA */}
+                {(companyInfo.siret || companyInfo.siren || companyInfo.rcs) && (
+                  <div className="flex flex-col items-end gap-0.5 mt-1">
+                    {companyInfo.siret && (
+                      <span className="text-[7px] text-app-navy/30 font-medium">
+                        SIRET: {companyInfo.siret}
+                      </span>
+                    )}
+                    {companyInfo.siren && (
+                      <span className="text-[7px] text-app-navy/30 font-medium">
+                        SIREN: {companyInfo.siren}
+                      </span>
+                    )}
+                    {companyInfo.rcs && (
+                      <span className="text-[7px] text-app-navy/30 font-medium">
+                        {companyInfo.rcs}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -585,22 +641,23 @@ export default function App() {
               </div>
             )}
 
-            <div className="mt-auto pt-3 border-t border-app-light-blue/10 min-h-[40px] flex items-center justify-center">
+            <div className="mt-auto pt-3 border-t border-app-light-blue/10 min-h-[40px] flex flex-col items-center justify-center gap-2">
+              {/* Services */}
               {companyInfo.services ? (
-                <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 px-4">
+                <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1.5 px-2">
                   {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
-                    <div key={idx} className="flex items-center gap-4">
-                      <span className="text-[7.5px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-[0.15em] text-center">
+                    <div key={idx} className="flex items-center gap-3">
+                      <span className="text-[9px] sm:text-[10px] text-app-navy/50 font-bold uppercase tracking-wide text-center leading-tight">
                         {service.trim()}
                       </span>
                       {idx < arr.length - 1 && (
-                        <span className="text-[8px] text-app-navy/10">|</span>
+                        <span className="text-[10px] text-app-navy/20">|</span>
                       )}
                     </div>
                   ))}
                 </div>
               ) : (
-                <span className="text-[8px] sm:text-[9px] text-app-navy/30 font-bold uppercase tracking-widest italic">
+                <span className="text-[9px] sm:text-[10px] text-app-navy/40 font-bold uppercase tracking-wide italic text-center px-2 leading-tight">
                   Offre valable pendant 30 jours à compter de la date d'émission
                 </span>
               )}
@@ -818,6 +875,46 @@ export default function App() {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium h-20 resize-none"
                     />
                   </div>
+
+                  {/* Informations légales */}
+                  <div className="space-y-4 pt-4 border-t border-slate-200">
+                    <h4 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Informations légales (affichées en bas)</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">SIRET (14 chiffres)</label>
+                        <input 
+                          type="text" 
+                          value={companyInfo.siret || ''}
+                          onChange={e => setCompanyInfo({...companyInfo, siret: e.target.value})}
+                          placeholder="123 456 789 00012"
+                          maxLength={17}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">SIREN (9 chiffres)</label>
+                        <input 
+                          type="text" 
+                          value={companyInfo.siren || ''}
+                          onChange={e => setCompanyInfo({...companyInfo, siren: e.target.value})}
+                          placeholder="123 456 789"
+                          maxLength={11}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">RCS (Registre du Commerce)</label>
+                        <input 
+                          type="text" 
+                          value={companyInfo.rcs || ''}
+                          onChange={e => setCompanyInfo({...companyInfo, rcs: e.target.value})}
+                          placeholder="RCS Paris B 123 456 789"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Téléphone</label>
@@ -861,6 +958,36 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Logo Dimensions */}
+                  {companyInfo.logo && (
+                    <div className="grid grid-cols-2 gap-4 bg-app-light-blue/10 p-4 rounded-2xl">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Largeur du logo (mm)</label>
+                        <input 
+                          type="number" 
+                          value={companyInfo.logoWidth || 15}
+                          onChange={e => setCompanyInfo({...companyInfo, logoWidth: parseFloat(e.target.value) || 15})}
+                          placeholder="15"
+                          min="5"
+                          max="50"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Hauteur du logo (mm)</label>
+                        <input 
+                          type="number" 
+                          value={companyInfo.logoHeight || 15}
+                          onChange={e => setCompanyInfo({...companyInfo, logoHeight: parseFloat(e.target.value) || 15})}
+                          placeholder="15"
+                          min="5"
+                          max="50"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
@@ -928,6 +1055,74 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Dimensions Signature et Cachet */}
+                  {(companyInfo.signature || companyInfo.stamp) && (
+                    <div className="grid grid-cols-2 gap-4 bg-app-light-blue/10 p-4 rounded-2xl">
+                      {companyInfo.signature && (
+                        <div className="space-y-3">
+                          <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dimensions Signature (mm)</h5>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Largeur</label>
+                              <input 
+                                type="number" 
+                                value={companyInfo.signatureWidth || 35}
+                                onChange={e => setCompanyInfo({...companyInfo, signatureWidth: parseFloat(e.target.value) || 35})}
+                                placeholder="35"
+                                min="10"
+                                max="80"
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-xs font-medium"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Hauteur</label>
+                              <input 
+                                type="number" 
+                                value={companyInfo.signatureHeight || 25}
+                                onChange={e => setCompanyInfo({...companyInfo, signatureHeight: parseFloat(e.target.value) || 25})}
+                                placeholder="25"
+                                min="10"
+                                max="80"
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-xs font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {companyInfo.stamp && (
+                        <div className="space-y-3">
+                          <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dimensions Cachet (mm)</h5>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Largeur</label>
+                              <input 
+                                type="number" 
+                                value={companyInfo.stampWidth || 35}
+                                onChange={e => setCompanyInfo({...companyInfo, stampWidth: parseFloat(e.target.value) || 35})}
+                                placeholder="35"
+                                min="10"
+                                max="80"
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-xs font-medium"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold text-slate-400 uppercase">Hauteur</label>
+                              <input 
+                                type="number" 
+                                value={companyInfo.stampHeight || 25}
+                                onChange={e => setCompanyInfo({...companyInfo, stampHeight: parseFloat(e.target.value) || 25})}
+                                placeholder="25"
+                                min="10"
+                                max="80"
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-xs font-medium"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="p-6 md:p-8 border-t border-slate-100 shrink-0">
