@@ -585,18 +585,24 @@ export default function App() {
               </div>
             )}
 
-            <div className="mt-auto pt-2 text-[8px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-widest text-center border-t border-app-light-blue/10">
+            <div className="mt-auto pt-3 border-t border-app-light-blue/10 min-h-[40px] flex items-center justify-center">
               {companyInfo.services ? (
-                <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 gap-y-1">
+                <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-1 px-4">
                   {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
-                    <span key={idx} className="flex items-center gap-3 sm:gap-6">
-                      <span>{service.trim()}</span>
-                      {idx < arr.length - 1 && <span className="h-3 w-px bg-app-navy/10" />}
-                    </span>
+                    <div key={idx} className="flex items-center gap-4">
+                      <span className="text-[7.5px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-[0.15em] text-center">
+                        {service.trim()}
+                      </span>
+                      {idx < arr.length - 1 && (
+                        <span className="text-[8px] text-app-navy/10">|</span>
+                      )}
+                    </div>
                   ))}
                 </div>
               ) : (
-                <span className="italic">Offre valable pendant 30 jours à compter de la date d'émission</span>
+                <span className="text-[8px] sm:text-[9px] text-app-navy/30 font-bold uppercase tracking-widest italic">
+                  Offre valable pendant 30 jours à compter de la date d'émission
+                </span>
               )}
             </div>
           </div>

@@ -225,23 +225,29 @@ const generatePDFInternal = (proforma: Proforma, company: CompanyInfo): jsPDF =>
   }
 
   // 8. Legal Note / Services
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(150, 150, 150);
+  doc.setTextColor(160, 160, 160);
   
   if (company.services) {
-    const servicesText = company.services.split('\n')
+    const services = company.services.split('\n')
       .map(s => s.trim())
-      .filter(Boolean)
-      .join('    |    ');
+      .filter(Boolean);
     
-    doc.text(servicesText.toUpperCase(), pageWidth / 2, currentY + 20, { 
+    // Draw horizontal line before services
+    doc.setDrawColor(230, 230, 230);
+    doc.setLineWidth(0.1);
+    doc.line(MARGIN, currentY + 15, pageWidth - MARGIN, currentY + 15);
+
+    const servicesText = services.join('    |    ');
+    
+    doc.text(servicesText.toUpperCase(), pageWidth / 2, currentY + 22, { 
       align: 'center',
       maxWidth: pageWidth - (MARGIN * 2)
     });
   } else {
     doc.setFont('helvetica', 'italic');
-    doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 20, { align: 'center' });
+    doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 22, { align: 'center' });
   }
 
   return doc;
