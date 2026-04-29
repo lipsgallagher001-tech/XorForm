@@ -7,18 +7,12 @@ const formatCurrency = (val: number) => {
   return `${val.toLocaleString('fr-FR').replace(/\s/g, ' ')} FCFA`;
 };
 
-export const generatePDF = (proforma: Proforma, company: CompanyInfo) => {
+const generatePDFInternal = (proforma: Proforma, company: CompanyInfo): jsPDF => {
   // 0. Calculate Height
-  // Base height for header, initial margins, and client info: ~85mm
-  // Each table row (font 9, padding 4): ~10mm
-  // Summary area: ~30mm
-  // Bottom margin: ~20mm
-  const estimatedTableHeight = (proforma.items.length * 10) + 10; // +10 for table header
-  const requiredHeight = 85 + estimatedTableHeight + 30 + 20;
-  
-  // Use a minimum of A4 height (297) if it's very short, or stick to required height?
-  // User asked to avoid empty space, so we use the required height directly.
-  // We'll keep a minimum height of 150mm for aesthetic reasons.
+  const estimatedTableHeight = (proforma.items.length * 10) + 10; 
+  const extraSpace = (company.signature || company.stamp) ? 40 : 10;
+  const servicesHeight = company.services ? 15 : 0;
+  const requiredHeight = 85 + estimatedTableHeight + 30 + extraSpace + servicesHeight + 20;
   const finalPageHeight = Math.max(150, requiredHeight);
 
   const doc = new jsPDF({
@@ -38,7 +32,7 @@ export const generatePDF = (proforma: Proforma, company: CompanyInfo) => {
   doc.setFontSize(80);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(150, 150, 150);
-  doc.text(proforma.type || 'PROFORMA', pageWidth / 2, pageHeight / 2, {
+  doc.text(company.watermark || proforma.type || 'PROFORMA', pageWidth / 2, pageHeight / 2, {
     align: 'center',
     angle: 45
   });
@@ -92,7 +86,7 @@ export const generatePDF = (proforma: Proforma, company: CompanyInfo) => {
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(proforma.type || 'PROFORMA', pageWidth - MARGIN, MARGIN + 8, { align: 'right' });
-  
+
   // Horizontal Line
   doc.setDrawColor(192, 224, 231); // #c0e0e7
   doc.setLineWidth(0.5);
@@ -200,11 +194,65 @@ export const generatePDF = (proforma: Proforma, company: CompanyInfo) => {
   doc.setTextColor(10, 31, 44);
   doc.text(formatCurrency(proforma.total), pageWidth - MARGIN - 5, currentY + 3, { align: 'right' });
 
-  // 8. Legal Note
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'italic');
-  doc.setTextColor(150, 150, 150);
-  doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 20, { align: 'center' });
+  // Signature and Stamp
+  if (company.signature || company.stamp) {
+    currentY += 20;
+    const imgWidth = 35;
+    const imgHeight = 25;
+    
+    if (company.stamp) {
+      try {
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.text('CACHET', pageWidth - MARGIN - imgWidth * 2 - 10 + imgWidth/2, currentY - 5, { align: 'center' });
+        doc.addImage(company.stamp, 'PNG', pageWidth - MARGIN - imgWidth * 2 - 10, currentY, imgWidth, imgHeight, undefined, 'FAST');
+      } catch (e) {
+        console.error('Error adding stamp to PDF:', e);
+      }
+    }
+    
+    if (company.signature) {
+      try {
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.text('SIGNATURE', pageWidth - MARGIN - imgWidth + imgWidth/2, currentY - 5, { align: 'center' });
+        doc.addImage(company.signature, 'PNG', pageWidth - MARGIN - imgWidth, currentY, imgWidth, imgHeight, undefined, 'FAST');
+      } catch (e) {
+        console.error('Error adding signature to PDF:', e);
+      }
+    }
+    currentY += imgHeight;
+  }
 
+  // 8. Legal Note / Services
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(150, 150, 150);
+  
+  if (company.services) {
+    const servicesText = company.services.split('\n')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .join('    |    ');
+    
+    doc.text(servicesText.toUpperCase(), pageWidth / 2, currentY + 20, { 
+      align: 'center',
+      maxWidth: pageWidth - (MARGIN * 2)
+    });
+  } else {
+    doc.setFont('helvetica', 'italic');
+    doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 20, { align: 'center' });
+  }
+
+  return doc;
+};
+
+export const getPDFBlob = (proforma: Proforma, company: CompanyInfo): Blob => {
+  const doc = generatePDFInternal(proforma, company);
+  return doc.output('blob');
+};
+
+export const generatePDF = (proforma: Proforma, company: CompanyInfo) => {
+  const doc = generatePDFInternal(proforma, company);
   doc.save(`${(proforma.type || 'PROFORMA').toLowerCase()}-${proforma.number}.pdf`);
 };

@@ -14,12 +14,14 @@ import {
   Settings,
   X,
   CheckCircle2,
-  Calendar
+  Calendar,
+  MessageSquare,
+  Share2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo } from './types';
-import { generatePDF } from './lib/pdf-generator';
+import { generatePDF, getPDFBlob } from './lib/pdf-generator';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",
@@ -175,6 +177,37 @@ export default function App() {
 
   const handleExport = (p: Proforma) => {
     generatePDF(p, companyInfo);
+  };
+
+  const handleWhatsApp = (p: Proforma) => {
+    const text = `Bonjour ${(p.client.name || 'Client').toUpperCase()},\n\nVoici votre ${p.type === 'PROFORMA' ? 'devis' : 'facture'} N° ${p.number} d'un montant de ${p.total.toLocaleString()} FCFA.\n\nCordialement, ${companyInfo.name}.`;
+    const encodedText = encodeURIComponent(text);
+    const phone = client.phone.replace(/\D/g, '');
+    const url = phone ? `https://wa.me/${phone}?text=${encodedText}` : `https://wa.me/?text=${encodedText}`;
+    window.open(url, '_blank');
+  };
+
+  const handleShare = async (p: Proforma) => {
+    try {
+      const blob = getPDFBlob(p, companyInfo);
+      const filename = `${p.type.toLowerCase()}-${p.number}.pdf`;
+      const file = new File([blob], filename, { type: 'application/pdf' });
+
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${p.type} ${p.number}`,
+          text: `Voici votre ${p.type.toLowerCase()} N° ${p.number}`
+        });
+      } else {
+        // Fallback for browsers that don't support file sharing
+        handleExport(p);
+        alert("Le partage de fichiers n'est pas supporté par votre navigateur. Le fichier a été téléchargé.");
+      }
+    } catch (error) {
+      console.error('Error sharing:', error);
+      handleExport(p);
+    }
   };
 
   const loadFromHistory = (p: Proforma) => {
@@ -436,110 +469,135 @@ export default function App() {
         </section>
 
         {/* Preview Pane (Right) */}
-        <section className={`flex-1 bg-app-light-blue/40 items-center justify-center p-4 md:p-8 overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-          {/* The "Paper" Document */}
-          <div className="w-full max-w-[580px] min-h-[750px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 md:p-12 flex flex-col relative overflow-hidden">
+        <section className={`flex-1 bg-app-light-blue/40 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+          {/* The "Paper" Document Container - strictly A4 ratio with better mobile scaling */}
+          <div className="w-[400px] xs:w-[500px] sm:w-full sm:max-w-[580px] h-[565px] xs:h-[707px] sm:h-[820px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 sm:p-12 flex flex-col relative overflow-hidden origin-top scale-[0.7] xs:scale-[0.75] sm:scale-90 md:scale-100 transition-transform duration-300">
             {/* Watermark */}
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02] rotate-[-45deg]">
-              <span className="text-6xl md:text-9xl font-black uppercase font-sans tracking-[0.2em] text-app-navy">{docType}</span>
+              <span className="text-6xl md:text-9xl font-black uppercase font-sans tracking-[0.2em] text-app-navy">
+                {companyInfo.watermark || docType}
+              </span>
             </div>
 
             {/* Header */}
             <div className="flex justify-between items-start mb-6">
-              <div className="flex gap-4 items-start">
+              <div className="flex gap-2 sm:gap-4 items-start pr-2">
                 {/* Logo Box */}
-                <div className="w-12 h-12 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center shrink-0">
                   {companyInfo.logo ? (
                     <img src={companyInfo.logo} alt="Logo" className="w-full h-full object-contain" />
                   ) : (
-                    <div className="w-10 h-10 bg-app-navy flex items-center justify-center text-white rounded shadow-sm">
-                      <span className="font-sans font-bold text-lg">{companyInfo.name.charAt(0).toUpperCase()}</span>
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-app-navy flex items-center justify-center text-white rounded shadow-sm">
+                      <span className="font-sans font-bold text-sm sm:text-lg">{companyInfo.name.charAt(0).toUpperCase()}</span>
                     </div>
                   )}
                 </div>
-                <div className="flex flex-col">
-                  <h3 className="font-sans font-black text-lg tracking-tight leading-tight mb-1 text-app-navy">{companyInfo.name.toUpperCase()}</h3>
-                  <div className="font-sans text-[10px] text-app-navy/60 font-medium leading-snug">
-                    <p>{companyInfo.address}</p>
+                <div className="flex flex-col min-w-0">
+                  <h3 className="font-sans font-black text-sm sm:text-lg tracking-tight leading-tight mb-0.5 sm:mb-1 text-app-navy uppercase truncate">{companyInfo.name}</h3>
+                  <div className="font-sans text-[7px] sm:text-[9px] text-app-navy/60 font-medium leading-snug">
+                    <p className="truncate">{companyInfo.address}</p>
                     <p>{companyInfo.email}</p>
                     <p>{companyInfo.phone}</p>
                   </div>
                 </div>
               </div>
-              <div className="text-right pt-2">
-                <h2 className="text-3xl font-sans font-black text-app-navy tracking-tighter">{docType}</h2>
+              <div className="text-right pt-1 sm:pt-2 border-l border-app-light-blue/20 pl-2 sm:pl-4 shrink-0">
+                <h2 className="text-lg sm:text-2xl md:text-3xl font-sans font-black text-app-navy tracking-tighter uppercase leading-none">{docType}</h2>
               </div>
             </div>
 
             <div className="w-full h-px bg-app-light-blue/30 mb-8" />
 
             {/* Meta & Client Info */}
-            <div className="flex justify-between items-start mb-10">
-              <div className="space-y-1">
-                <p className="font-sans text-[10px] text-app-navy/40 font-bold uppercase tracking-widest leading-none mb-1">Destinataire:</p>
-                <div className="font-sans text-[12px] text-app-navy leading-tight">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6 sm:mb-10">
+              <div className="space-y-1 text-left">
+                <p className="font-sans text-[9px] text-app-navy/40 font-bold uppercase tracking-widest leading-none mb-1">Destinataire:</p>
+                <div className="font-sans text-[11px] text-app-navy leading-tight">
                   <span className="block font-black text-app-navy mb-0.5">{client.name.toUpperCase() || 'NOM DU CLIENT'}</span>
-                  <span className="font-medium text-app-navy/70">{client.phone || ''}</span>
+                  <span className="font-bold text-app-navy/70">{client.phone || ''}</span>
                 </div>
               </div>
-              <div className="text-right font-sans text-[11px] space-y-1.5">
-                <p><span className="text-app-navy/40 uppercase font-bold tracking-tighter mr-2">N°:</span> <span className="font-bold text-app-navy">{proformaNumber}</span></p>
-                <p><span className="text-app-navy/40 uppercase font-bold tracking-tighter mr-2">Date:</span> <span className="font-bold text-app-navy">{format(new Date(proformaDate), 'dd/MM/yyyy')}</span></p>
+              <div className="text-left sm:text-right font-sans text-[10px] space-y-1.5 w-full sm:w-auto">
+                <p className="flex justify-between sm:block gap-4"><span className="text-app-navy/30 uppercase font-black tracking-tighter mr-2">N°:</span> <span className="font-black text-app-navy">{proformaNumber}</span></p>
+                <p className="flex justify-between sm:block gap-4"><span className="text-app-navy/30 uppercase font-black tracking-tighter mr-2">Date:</span> <span className="font-black text-app-navy">{format(new Date(proformaDate), 'dd/MM/yyyy')}</span></p>
               </div>
             </div>
 
             {/* Items Table */}
-            <div className="flex-1">
-              <table className="w-full border-collapse">
+            <div className="flex-1 overflow-x-visible">
+              <table className="w-full border-collapse border border-app-light-blue/20">
                 <thead>
-                  <tr className="bg-app-light-blue text-app-navy font-sans text-[9px] uppercase tracking-widest">
-                    <th className="py-3 px-4 font-black text-left">Description</th>
-                    <th className="py-3 px-4 text-center font-black w-16">Qté</th>
-                    <th className="py-3 px-4 text-right font-black w-32 border-l border-app-navy/10">Prix Unitaire</th>
-                    <th className="py-3 px-4 text-right font-black w-32 border-l border-app-navy/10">Total</th>
+                  <tr className="bg-app-light-blue/50 text-app-navy font-sans text-[8px] sm:text-[9px] uppercase tracking-widest">
+                    <th className="py-2.5 px-4 font-black text-left border-r border-app-navy/10">Description</th>
+                    <th className="py-2.5 px-2 font-black text-center w-8 sm:w-16 border-r border-app-navy/10">Qté</th>
+                    <th className="py-2.5 px-4 text-center font-black w-24 sm:w-32 border-r border-app-navy/10">Prix Unitaire</th>
+                    <th className="py-2.5 px-4 text-center font-black w-28 sm:w-32">Total</th>
                   </tr>
                 </thead>
-                <tbody className="text-[10px] md:text-[11px] text-app-navy">
+                <tbody className="text-[9px] sm:text-[10px] md:text-[11px] text-app-navy">
                   {items.map((item, i) => (
                     <tr key={i} className="border-b border-app-light-blue/20">
-                      <td className="py-3 px-4 font-bold uppercase">{item.description || 'Design Services'}</td>
-                      <td className="py-3 px-4 text-center font-medium">{item.quantity}</td>
-                      <td className="py-3 px-4 text-right text-app-navy/60 font-bold border-l border-app-light-blue/10">{item.unitPrice.toLocaleString()} FCFA</td>
-                      <td className="py-3 px-4 text-right font-black text-app-navy border-l border-app-light-blue/10">{(item.quantity * item.unitPrice).toLocaleString()} FCFA</td>
+                      <td className="py-2 px-4 font-bold uppercase truncate max-w-[100px] sm:max-w-none border-r border-app-light-blue/10">{item.description || 'Design Services'}</td>
+                      <td className="py-2 px-2 text-center font-medium border-r border-app-light-blue/10">{item.quantity}</td>
+                      <td className="py-2 px-4 text-right text-app-navy/60 font-bold border-r border-app-light-blue/10 whitespace-nowrap">{item.unitPrice.toLocaleString()} FCFA</td>
+                      <td className="py-2 px-4 text-right font-black text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} FCFA</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Document Footer */}
-            <div className="mt-10 self-end w-full max-w-[320px] space-y-3">
+            {/* Document Footer (Totals) */}
+            <div className="mt-8 self-end w-full max-w-[320px] space-y-2 mb-6">
+              <div className="flex justify-between items-center text-[10px] px-2">
+                <span className="font-bold text-app-navy/30 uppercase tracking-widest italic">Sous-total</span>
+                <span className="font-bold text-app-navy/60">{subtotal.toLocaleString()} FCFA</span>
+              </div>
               {discountPercent > 0 && (
-                <div className="space-y-1.5 px-1">
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span className="font-bold text-app-navy/30 uppercase tracking-widest">Sous-total</span>
-                    <span className="font-bold text-app-navy/60">
-                      {subtotal.toLocaleString()} FCFA
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span className="font-bold text-app-navy/30 uppercase tracking-widest">Réduction ({discountPercent}%)</span>
-                    <span className="font-bold text-red-500">
-                      -{discountAmount.toLocaleString()} FCFA
-                    </span>
-                  </div>
+                <div className="flex justify-between items-center text-[10px] px-2">
+                  <span className="font-bold text-app-navy/30 uppercase tracking-widest italic">Réduction ({discountPercent}%)</span>
+                  <span className="font-bold text-red-500">-{discountAmount.toLocaleString()} FCFA</span>
                 </div>
               )}
-              <div className="flex justify-between items-center bg-app-yellow px-5 py-4 rounded-xl shadow-sm">
-                <span className="font-sans text-[10px] font-black text-app-navy uppercase tracking-[0.2em] leading-none">Total Général</span>
-                <span className="text-xl font-black text-app-navy tracking-tight">
+              
+              <div className="bg-app-yellow p-4 rounded-lg flex justify-between items-center shadow-lg shadow-app-yellow/10">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-app-navy italic">Total Général</span>
+                <span className="text-xl font-black text-app-navy tracking-tighter">
                   {total.toLocaleString()} FCFA
                 </span>
               </div>
             </div>
 
-            <div className="mt-auto pt-12 text-[9px] text-app-navy/30 font-bold uppercase tracking-[0.2em] text-center italic">
-              Offre valable 30 jours
+            {(companyInfo.signature || companyInfo.stamp) && (
+              <div className="flex justify-end gap-12 px-6 mb-4">
+                <div className="text-center">
+                  <p className="text-[8px] font-black text-app-navy/20 uppercase tracking-widest mb-2 border-b border-app-navy/5 pb-1">Cachet</p>
+                  {companyInfo.stamp && (
+                    <img src={companyInfo.stamp} alt="Stamp" className="h-16 object-contain mix-blend-multiply opacity-80" />
+                  )}
+                </div>
+                <div className="text-center">
+                  <p className="text-[8px] font-black text-app-navy/20 uppercase tracking-widest mb-2 border-b border-app-navy/5 pb-1">Signature</p>
+                  {companyInfo.signature && (
+                    <img src={companyInfo.signature} alt="Signature" className="h-16 object-contain mix-blend-multiply" />
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-auto pt-2 text-[8px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-widest text-center border-t border-app-light-blue/10">
+              {companyInfo.services ? (
+                <div className="flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 gap-y-1">
+                  {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
+                    <span key={idx} className="flex items-center gap-3 sm:gap-6">
+                      <span>{service.trim()}</span>
+                      {idx < arr.length - 1 && <span className="h-3 w-px bg-app-navy/10" />}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span className="italic">Offre valable pendant 30 jours à compter de la date d'émission</span>
+              )}
             </div>
           </div>
         </section>
@@ -633,15 +691,31 @@ export default function App() {
                             <Calendar size={12} />
                             <span className="text-[10px] font-medium">{format(new Date(p.date), 'dd/MM/yy')}</span>
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleWhatsApp(p); }}
+                              title="Partager sur WhatsApp"
+                              className="p-1.5 text-slate-400 hover:text-green-500 transition-colors"
+                            >
+                              <MessageSquare size={16} />
+                            </button>
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); handleShare(p); }}
+                              title="Partager"
+                              className="p-1.5 text-slate-400 hover:text-app-navy transition-colors lg:hidden"
+                            >
+                              <Share2 size={16} />
+                            </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleExport(p); }}
+                              title="Télécharger PDF"
                               className="p-1.5 text-slate-400 hover:text-app-navy transition-colors"
                             >
                               <Download size={16} />
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); deleteFromHistory(p.id); }}
+                              title="Supprimer"
                               className={`p-1.5 text-slate-400 hover:text-app-black transition-colors ${selectedHistoryIds.includes(p.id) ? 'opacity-0 pointer-events-none' : ''}`}
                             >
                               <Trash2 size={16} />
@@ -683,15 +757,15 @@ export default function App() {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-lg rounded-3xl shadow-2xl relative z-10 overflow-hidden"
+              className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl relative z-10 flex flex-col"
             >
-              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
                 <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
-              <div className="p-8 space-y-6">
+              <div className="p-6 md:p-8 space-y-6 overflow-y-auto flex-1 custom-scrollbar">
                 <div className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nom commercial</label>
@@ -719,6 +793,25 @@ export default function App() {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
                     />
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Filigrane (Watermark)</label>
+                    <input 
+                      type="text" 
+                      value={companyInfo.watermark || ''}
+                      onChange={e => setCompanyInfo({...companyInfo, watermark: e.target.value})}
+                      placeholder="Laisse vide pour PROFORMA/FACTURE"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Nos Services (affichés en haut)</label>
+                    <textarea 
+                      value={companyInfo.services || ''}
+                      onChange={e => setCompanyInfo({...companyInfo, services: e.target.value})}
+                      placeholder="Liste de vos services ou description courte..."
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-app-navy/10 focus:border-app-navy outline-none transition-all text-sm font-medium h-20 resize-none"
+                    />
+                  </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Téléphone</label>
@@ -733,7 +826,7 @@ export default function App() {
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Logo de l'entreprise</label>
                       <div className="flex items-center gap-3">
                         <label className="flex-1 flex items-center justify-center px-4 py-3 bg-white border border-slate-200 border-dashed rounded-2xl cursor-pointer hover:border-app-navy transition-all text-xs font-medium text-slate-500">
-                          {companyInfo.logo ? 'Changer le logo' : 'Charger un logo'}
+                          {companyInfo.logo ? 'Changer logo' : 'Logo'}
                           <input 
                             type="file" 
                             accept="image/*" 
@@ -762,7 +855,76 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Signature</label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex-1 flex items-center justify-center px-4 py-3 bg-white border border-slate-200 border-dashed rounded-2xl cursor-pointer hover:border-app-navy transition-all text-xs font-medium text-slate-500">
+                          {companyInfo.signature ? 'Changer' : 'Charger'}
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  const base64 = event.target?.result as string;
+                                  setCompanyInfo({ ...companyInfo, signature: base64 });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        {companyInfo.signature && (
+                          <button 
+                            onClick={() => setCompanyInfo({ ...companyInfo, signature: undefined })}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Cachet</label>
+                      <div className="flex items-center gap-3">
+                        <label className="flex-1 flex items-center justify-center px-4 py-3 bg-white border border-slate-200 border-dashed rounded-2xl cursor-pointer hover:border-app-navy transition-all text-xs font-medium text-slate-500">
+                          {companyInfo.stamp ? 'Changer' : 'Charger'}
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (event) => {
+                                  const base64 = event.target?.result as string;
+                                  setCompanyInfo({ ...companyInfo, stamp: base64 });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        {companyInfo.stamp && (
+                          <button 
+                            onClick={() => setCompanyInfo({ ...companyInfo, stamp: undefined })}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
+              </div>
+              <div className="p-6 md:p-8 border-t border-slate-100 shrink-0">
                 <button 
                   onClick={() => setShowSettings(false)}
                   className="w-full py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs"
