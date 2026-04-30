@@ -79,7 +79,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // 1. Watermark (Centered vertically and horizontally)
   doc.saveGraphicsState();
-  doc.setGState(new (doc as any).GState({ opacity: 0.05 }));
+  doc.setGState(new (doc as any).GState({ opacity: 0.02 }));
   doc.setFontSize(80);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(150, 150, 150);
@@ -88,7 +88,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.text(company.watermark || proforma.type || 'PROFORMA', pageWidth / 2, watermarkY, {
     align: 'center',
     baseline: 'middle',
-    angle: 45
+    angle: -45
   });
   doc.restoreGraphicsState();
 
@@ -281,7 +281,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // Signature and Stamp
   if (company.signature || company.stamp) {
-    currentY += 20;
+    currentY += 6; // Réduit de 12 à 6 pour moins d'espace en haut
     const stampWidth = company.stampWidth || 35;
     const stampHeight = company.stampHeight || 25;
     const signatureWidth = company.signatureWidth || 35;
@@ -289,9 +289,6 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     
     if (company.stamp) {
       try {
-        doc.setFontSize(7);
-        doc.setTextColor(150, 150, 150);
-        doc.text('CACHET', pageWidth - MARGIN - stampWidth - signatureWidth - 10 + stampWidth/2, currentY - 5, { align: 'center' });
         const optimizedStamp = await optimizeImage(company.stamp, 400);
         doc.addImage(optimizedStamp.data, optimizedStamp.format, pageWidth - MARGIN - stampWidth - signatureWidth - 10, currentY, stampWidth, stampHeight, undefined, 'FAST');
       } catch (e) {
@@ -301,9 +298,6 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     
     if (company.signature) {
       try {
-        doc.setFontSize(7);
-        doc.setTextColor(150, 150, 150);
-        doc.text('SIGNATURE', pageWidth - MARGIN - signatureWidth + signatureWidth/2, currentY - 5, { align: 'center' });
         const optimizedSignature = await optimizeImage(company.signature, 400);
         doc.addImage(optimizedSignature.data, optimizedSignature.format, pageWidth - MARGIN - signatureWidth, currentY, signatureWidth, signatureHeight, undefined, 'FAST');
       } catch (e) {
@@ -326,20 +320,20 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       .map(s => s.trim())
       .filter(Boolean);
     
-    // Draw horizontal line before services
+    // Draw horizontal line before services - Réduit l'espacement
     doc.setDrawColor(230, 230, 230);
     doc.setLineWidth(0.1);
-    doc.line(MARGIN, currentY + 15, pageWidth - MARGIN, currentY + 15);
+    doc.line(MARGIN, currentY + 8, pageWidth - MARGIN, currentY + 8); // Réduit de 15 à 8
 
     const servicesText = services.join('    |    ');
     
-    doc.text(servicesText.toUpperCase(), pageWidth / 2, currentY + 22, { 
+    doc.text(servicesText.toUpperCase(), pageWidth / 2, currentY + 14, { // Réduit de 22 à 14
       align: 'center',
       maxWidth: pageWidth - (MARGIN * 2)
     });
   } else {
     doc.setFont('helvetica', 'italic');
-    doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 22, { align: 'center' });
+    doc.text('Offre valable pendant 30 jours à compter de la date d\'émission.', pageWidth / 2, currentY + 14, { align: 'center' }); // Réduit de 22 à 14
   }
 
   return doc;

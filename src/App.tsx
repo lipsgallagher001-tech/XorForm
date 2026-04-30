@@ -22,6 +22,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo } from './types';
 import { generatePDF, getPDFBlob } from './lib/pdf-generator';
+import Login from './Login';
+import Register from './Register';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",
@@ -31,7 +33,19 @@ const DEFAULT_COMPANY: CompanyInfo = {
 };
 
 export default function App() {
-  // State
+  // Authentication State
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return localStorage.getItem('isAuthenticated') === 'true';
+    } catch (e) {
+      console.error('Erreur lors de la lecture de localStorage:', e);
+      return false;
+    }
+  });
+
+  const [showRegister, setShowRegister] = useState(false);
+
+  // State - TOUS LES HOOKS DOIVENT ÊTRE ICI, AVANT TOUT RETURN
   const generateId = () => {
     try {
       return crypto.randomUUID();
@@ -74,7 +88,7 @@ export default function App() {
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
-  // Derivatives
+  // Derivatives - TOUS LES HOOKS AVANT LE RETURN
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0), [items]);
   const discountAmount = useMemo(() => (subtotal * discountPercent) / 100, [subtotal, discountPercent]);
   const total = useMemo(() => subtotal - discountAmount, [subtotal, discountAmount]);
@@ -94,6 +108,83 @@ export default function App() {
       setSelectedHistoryIds([]);
     }
   }, [showHistory]);
+
+  // Surveiller les changements d'authentification
+  useEffect(() => {
+    console.log('État d\'authentification changé:', isAuthenticated);
+  }, [isAuthenticated]);
+
+  // Effects
+  useEffect(() => {
+    localStorage.setItem('company_info', JSON.stringify(companyInfo));
+  }, [companyInfo]);
+
+  useEffect(() => {
+    localStorage.setItem('proforma_history', JSON.stringify(history));
+  }, [history]);
+
+  const handleLogin = (email: string, password: string) => {
+    try {
+      console.log('Connexion avec:', email);
+      setIsAuthenticated(true);
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('userEmail', email);
+      console.log('Connexion réussie');
+    } catch (e) {
+      console.error('Erreur lors de la connexion:', e);
+    }
+  };
+
+  const handleRegister = (userData: {
+    name: string;
+    email: string;
+    password: string;
+    company: string;
+  }) => {
+    try {
+      console.log('Inscription avec:', userData.email);
+      // Sauvegarder les données utilisateur
+      localStorage.setItem('userName', userData.name);
+      localStorage.setItem('userEmail', userData.email);
+      localStorage.setItem('userCompany', userData.company);
+      
+      // Connecter automatiquement après l'inscription
+      setIsAuthenticated(true);
+      localStorage.setItem('isAuthenticated', 'true');
+      console.log('Inscription réussie');
+    } catch (e) {
+      console.error('Erreur lors de l\'inscription:', e);
+    }
+  };
+
+  const handleLogout = () => {
+    try {
+      console.log('Déconnexion en cours...');
+      // Nettoyer localStorage d'abord
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('userEmail');
+      localStorage.removeItem('userName');
+      localStorage.removeItem('userCompany');
+      
+      console.log('Déconnexion terminée, rechargement de la page...');
+      
+      // Recharger la page pour forcer le re-render
+      window.location.reload();
+    } catch (e) {
+      console.error('Erreur lors de la déconnexion:', e);
+    }
+  };
+
+  // Si non authentifié, afficher la page de connexion ou d'inscription
+  if (!isAuthenticated) {
+    console.log('État non authentifié, showRegister:', showRegister);
+    if (showRegister) {
+      return <Register onRegister={handleRegister} onBackToLogin={() => setShowRegister(false)} />;
+    }
+    return <Login onLogin={handleLogin} onShowRegister={() => setShowRegister(true)} />;
+  }
+
+  console.log('État authentifié, affichage de l\'application');
 
   // Actions
   const toggleSelectAll = () => {
@@ -294,6 +385,14 @@ export default function App() {
             className="p-1.5 text-slate-400 hover:text-app-navy transition-colors"
           >
             <Settings size={18} />
+          </button>
+          <div className="w-px h-4 bg-app-light-blue/50 mx-1" />
+          <button 
+            onClick={handleLogout}
+            className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors uppercase tracking-wider"
+            title="Déconnexion"
+          >
+            Déconnexion
           </button>
         </div>
       </header>
@@ -625,23 +724,21 @@ export default function App() {
             </div>
 
             {(companyInfo.signature || companyInfo.stamp) && (
-              <div className="flex justify-end gap-12 px-6 mb-4">
+              <div className="flex justify-end gap-12 px-6 mb-0 -mt-6">
                 <div className="text-center">
-                  <p className="text-[8px] font-black text-app-navy/20 uppercase tracking-widest mb-2 border-b border-app-navy/5 pb-1">Cachet</p>
                   {companyInfo.stamp && (
-                    <img src={companyInfo.stamp} alt="Stamp" className="h-16 object-contain mix-blend-multiply opacity-80" />
+                    <img src={companyInfo.stamp} alt="Stamp" className="h-24 object-contain mix-blend-multiply opacity-80" />
                   )}
                 </div>
                 <div className="text-center">
-                  <p className="text-[8px] font-black text-app-navy/20 uppercase tracking-widest mb-2 border-b border-app-navy/5 pb-1">Signature</p>
                   {companyInfo.signature && (
-                    <img src={companyInfo.signature} alt="Signature" className="h-16 object-contain mix-blend-multiply" />
+                    <img src={companyInfo.signature} alt="Signature" className="h-24 object-contain mix-blend-multiply" />
                   )}
                 </div>
               </div>
             )}
 
-            <div className="mt-auto pt-3 border-t border-app-light-blue/10 min-h-[40px] flex flex-col items-center justify-center gap-2">
+            <div className="mt-auto pt-1 border-t border-app-light-blue/10 min-h-[40px] flex flex-col items-center justify-center gap-2">
               {/* Services */}
               {companyInfo.services ? (
                 <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1.5 px-2">
