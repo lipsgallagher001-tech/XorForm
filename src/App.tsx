@@ -173,6 +173,8 @@ export default function App() {
   const [discountPercent, setDiscountPercent] = useState<number>(0);
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
   const [viewingHistoryId, setViewingHistoryId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
@@ -249,10 +251,24 @@ export default function App() {
 
   const handleSaveAndCloseSettings = async () => {
     if (currentUserId) {
+      setIsSavingSettings(true);
       console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
-      await saveCompanySettings(currentUserId, companyInfo);
+      const success = await saveCompanySettings(currentUserId, companyInfo);
+      setIsSavingSettings(false);
+      
+      if (success) {
+        setSettingsSaved(true);
+        // Afficher le message pendant 1.5 secondes puis fermer
+        setTimeout(() => {
+          setSettingsSaved(false);
+          setShowSettings(false);
+        }, 1500);
+      } else {
+        alert('Erreur lors de la sauvegarde des paramètres');
+      }
+    } else {
+      setShowSettings(false);
     }
-    setShowSettings(false);
   };
 
   // Afficher un écran de chargement pendant la vérification de la session (max 3 secondes)
@@ -1054,7 +1070,6 @@ export default function App() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowSettings(false)}
               className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
             />
             <motion.div 
@@ -1065,7 +1080,11 @@ export default function App() {
             >
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
-                <button onClick={handleSaveAndCloseSettings} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button 
+                  onClick={handleSaveAndCloseSettings} 
+                  disabled={isSavingSettings}
+                  className="text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-50"
+                >
                   <X size={20} />
                 </button>
               </div>
@@ -1369,9 +1388,22 @@ export default function App() {
               <div className="p-6 md:p-8 border-t border-slate-100 shrink-0">
                 <button 
                   onClick={handleSaveAndCloseSettings}
-                  className="w-full py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs"
+                  disabled={isSavingSettings || settingsSaved}
+                  className="w-full py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Enregistrer les modifications
+                  {isSavingSettings ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Sauvegarde en cours...</span>
+                    </>
+                  ) : settingsSaved ? (
+                    <>
+                      <CheckCircle2 size={18} />
+                      <span>✓ Enregistré avec succès !</span>
+                    </>
+                  ) : (
+                    'Enregistrer les modifications'
+                  )}
                 </button>
               </div>
             </motion.div>
