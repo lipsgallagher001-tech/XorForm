@@ -105,32 +105,37 @@ export default function App() {
     checkSession();
 
     // Écouter les changements d'authentification
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('🔐 Événement auth:', event);
       setIsAuthenticated(!!session);
       
       if (session?.user) {
         setCurrentUserId(session.user.id);
         
-        // Charger les données depuis Supabase avec timeout
-        try {
-          const [settings, proformas] = await Promise.race([
-            Promise.all([
-              loadCompanySettings(session.user.id),
-              loadProformas(session.user.id)
-            ]),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Timeout')), 3000)
-            )
-          ]) as [CompanyInfo | null, Proforma[]];
-          
-          if (settings) {
-            setCompanyInfo(settings);
+        // Ne recharger les données que lors de la connexion initiale (SIGNED_IN)
+        // Pas lors des rafraîchissements de token (TOKEN_REFRESHED)
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+          console.log('📥 Chargement des données utilisateur...');
+          try {
+            const [settings, proformas] = await Promise.race([
+              Promise.all([
+                loadCompanySettings(session.user.id),
+                loadProformas(session.user.id)
+              ]),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 3000)
+              )
+            ]) as [CompanyInfo | null, Proforma[]];
+            
+            if (settings) {
+              setCompanyInfo(settings);
+            }
+            
+            setHistory(proformas);
+          } catch (loadError) {
+            console.warn('Erreur lors du chargement des données:', loadError);
+            // Continuer avec les valeurs par défaut
           }
-          
-          setHistory(proformas);
-        } catch (loadError) {
-          console.warn('Erreur lors du chargement des données:', loadError);
-          // Continuer avec les valeurs par défaut
         }
       } else {
         setCurrentUserId(null);
@@ -240,6 +245,14 @@ export default function App() {
     } catch (e) {
       console.error('Erreur lors de la déconnexion:', e);
     }
+  };
+
+  const handleSaveAndCloseSettings = async () => {
+    if (currentUserId) {
+      console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
+      await saveCompanySettings(currentUserId, companyInfo);
+    }
+    setShowSettings(false);
   };
 
   // Afficher un écran de chargement pendant la vérification de la session (max 3 secondes)
@@ -1052,7 +1065,7 @@ export default function App() {
             >
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
-                <button onClick={() => setShowSettings(false)} className="text-slate-400 hover:text-slate-900 transition-colors">
+                <button onClick={handleSaveAndCloseSettings} className="text-slate-400 hover:text-slate-900 transition-colors">
                   <X size={20} />
                 </button>
               </div>
@@ -1355,7 +1368,7 @@ export default function App() {
               </div>
               <div className="p-6 md:p-8 border-t border-slate-100 shrink-0">
                 <button 
-                  onClick={() => setShowSettings(false)}
+                  onClick={handleSaveAndCloseSettings}
                   className="w-full py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs"
                 >
                   Enregistrer les modifications
