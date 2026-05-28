@@ -855,7 +855,7 @@ export default function App() {
             </div>
 
             {(companyInfo.signature || companyInfo.stamp) && (
-              <div className="flex justify-end gap-12 px-6 mb-0 -mt-6">
+              <div className="flex justify-end gap-12 px-6 mb-0 mt-8">
                 <div className="text-center">
                   {companyInfo.stamp && (
                     <img src={companyInfo.stamp} alt="Stamp" className="h-24 object-contain mix-blend-multiply opacity-80" />
