@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Eye, EyeOff, Lock, Mail, User, Building, ArrowRight, ArrowLeft } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 interface RegisterProps {
   onRegister: (userData: {
@@ -58,16 +59,54 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
 
     setIsLoading(true);
 
-    // Simuler la création de compte
-    setTimeout(() => {
-      onRegister({
-        name: formData.name,
+    try {
+      // Créer le compte avec Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: formData.email,
         password: formData.password,
-        company: formData.company
+        options: {
+          data: {
+            name: formData.name,
+            company: formData.company
+          }
+        }
       });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (authData.user) {
+        // Créer les paramètres d'entreprise par défaut
+        const { error: settingsError } = await supabase
+          .from('company_settings')
+          .insert({
+            user_id: authData.user.id,
+            name: formData.company,
+            address: '123 Rue du Commerce, Paris',
+            email: formData.email,
+            phone: '01 23 45 67 89'
+          });
+
+        if (settingsError) {
+          console.error('Erreur lors de la création des paramètres:', settingsError);
+        }
+
+        // Appeler onRegister pour mettre à jour l'état de l'application
+        onRegister({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          company: formData.company
+        });
+      }
+    } catch (err: any) {
+      setError(err.message || 'Une erreur est survenue lors de l\'inscription');
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (

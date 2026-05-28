@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
+import { supabase } from './lib/supabase';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => void;
@@ -30,11 +31,28 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
 
     setIsLoading(true);
     
-    // Simuler une connexion
-    setTimeout(() => {
-      onLogin(email, password);
+    try {
+      // Connexion avec Supabase Auth
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) {
+        setError(authError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Appeler onLogin pour mettre à jour l'état de l'application
+        onLogin(email, password);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Une erreur est survenue lors de la connexion');
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (

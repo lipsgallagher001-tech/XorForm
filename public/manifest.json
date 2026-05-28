@@ -1,0 +1,65 @@
+{
+  "name": "XorForm - Générateur de Proforma et Factures",
+  "short_name": "XorForm",
+  "description": "Créez des proformas et factures professionnels en quelques clics",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0a1f2c",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon-16x16.png",
+      "sizes": "16x16",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "finance", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouveau Proforma",
+      "short_name": "Proforma",
+      "description": "Créer un nouveau proforma",
+      "url": "/?action=new-proforma",
+      "icons": [{ "src": "/icon-proforma.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Nouvelle Facture",
+      "short_name": "Facture",
+      "description": "Créer une nouvelle facture",
+      "url": "/?action=new-invoice",
+      "icons": [{ "src": "/icon-invoice.png", "sizes": "96x96" }]
+    }
+  ]
+}

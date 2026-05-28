@@ -1,0 +1,14 @@
+# robots.txt pour XorForm
+User-agent: *
+Allow: /
+
+# Disallow admin and private areas
+Disallow: /api/
+Disallow: /admin/
+Disallow: /.env
+
+# Sitemap
+Sitemap: https://xorform.com/sitemap.xml
+
+# Crawl-delay (optional, for rate limiting)
+Crawl-delay: 1

@@ -8,10 +8,14 @@
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "generate-favicons": "node generate-favicons.js",
+    "seo-audit": "lighthouse https://xorform.com --view --output html --output-path ./seo-audit-report.html",
+    "test-build": "npm run build && npm run preview"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
+    "@supabase/supabase-js": "^2.105.1",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "date-fns": "^4.1.0",
@@ -23,6 +27,7 @@
     "motion": "^12.23.24",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "sharp": "^0.34.5",
     "vite": "^6.2.0"
   },
   "devDependencies": {

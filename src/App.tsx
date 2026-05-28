@@ -24,6 +24,17 @@ import { Proforma, ProformaItem, CompanyInfo, ClientInfo } from './types';
 import { generatePDF, getPDFBlob } from './lib/pdf-generator';
 import Login from './Login';
 import Register from './Register';
+import SupabaseStatus from './components/SupabaseStatus';
+import SEO from './components/SEO';
+import { supabase } from './lib/supabase';
+import { 
+  loadCompanySettings, 
+  saveCompanySettings, 
+  loadProformas, 
+  saveProforma as saveProformaToSupabase, 
+  deleteProforma,
+  deleteMultipleProformas 
+} from './lib/supabase-helpers';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",
@@ -34,16 +45,104 @@ const DEFAULT_COMPANY: CompanyInfo = {
 
 export default function App() {
   // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    try {
-      return localStorage.getItem('isAuthenticated') === 'true';
-    } catch (e) {
-      console.error('Erreur lors de la lecture de localStorage:', e);
-      return false;
-    }
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [showRegister, setShowRegister] = useState(false);
+
+  // Timeout de sécurité pour forcer le chargement après 5 secondes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isCheckingAuth) {
+        console.warn('Timeout de chargement - affichage de la page');
+        setIsCheckingAuth(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [isCheckingAuth]);
+
+  // Vérifier la session Supabase au démarrage
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsAuthenticated(!!session);
+        
+        if (session?.user) {
+          setCurrentUserId(session.user.id);
+          
+          // Charger les données depuis Supabase avec timeout
+          try {
+            const [settings, proformas] = await Promise.race([
+              Promise.all([
+                loadCompanySettings(session.user.id),
+                loadProformas(session.user.id)
+              ]),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 3000)
+              )
+            ]) as [CompanyInfo | null, Proforma[]];
+            
+            if (settings) {
+              setCompanyInfo(settings);
+            }
+            
+            setHistory(proformas);
+          } catch (loadError) {
+            console.warn('Erreur lors du chargement des données (tables peut-être non créées):', loadError);
+            // Continuer avec les valeurs par défaut
+          }
+        }
+      } catch (error) {
+        console.error('Erreur lors de la vérification de la session:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkSession();
+
+    // Écouter les changements d'authentification
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setIsAuthenticated(!!session);
+      
+      if (session?.user) {
+        setCurrentUserId(session.user.id);
+        
+        // Charger les données depuis Supabase avec timeout
+        try {
+          const [settings, proformas] = await Promise.race([
+            Promise.all([
+              loadCompanySettings(session.user.id),
+              loadProformas(session.user.id)
+            ]),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            )
+          ]) as [CompanyInfo | null, Proforma[]];
+          
+          if (settings) {
+            setCompanyInfo(settings);
+          }
+          
+          setHistory(proformas);
+        } catch (loadError) {
+          console.warn('Erreur lors du chargement des données:', loadError);
+          // Continuer avec les valeurs par défaut
+        }
+      } else {
+        setCurrentUserId(null);
+        setCompanyInfo(DEFAULT_COMPANY);
+        setHistory([]);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // State - TOUS LES HOOKS DOIVENT ÊTRE ICI, AVANT TOUT RETURN
   const generateId = () => {
@@ -54,25 +153,11 @@ export default function App() {
     }
   };
 
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
-    try {
-      const saved = localStorage.getItem('company_info');
-      return saved ? JSON.parse(saved) : DEFAULT_COMPANY;
-    } catch (e) {
-      console.error('Failed to load company info:', e);
-      return DEFAULT_COMPANY;
-    }
-  });
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(DEFAULT_COMPANY);
   
-  const [history, setHistory] = useState<Proforma[]>(() => {
-    try {
-      const saved = localStorage.getItem('proforma_history');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      console.error('Failed to load history:', e);
-      return [];
-    }
-  });
+  const [history, setHistory] = useState<Proforma[]>([]);
+
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [currentId, setCurrentId] = useState<string>(generateId);
   const [docType, setDocType] = useState<'PROFORMA' | 'FACTURE'>('PROFORMA');
@@ -114,25 +199,23 @@ export default function App() {
     console.log('État d\'authentification changé:', isAuthenticated);
   }, [isAuthenticated]);
 
-  // Effects
+  // Sauvegarder les paramètres d'entreprise dans Supabase avec debounce
   useEffect(() => {
-    localStorage.setItem('company_info', JSON.stringify(companyInfo));
-  }, [companyInfo]);
+    if (!currentUserId || !isAuthenticated) return;
+    
+    // Debounce de 1 seconde pour éviter trop de sauvegardes
+    const timeoutId = setTimeout(() => {
+      console.log('🔄 Déclenchement de la sauvegarde des paramètres...');
+      saveCompanySettings(currentUserId, companyInfo);
+    }, 1000);
 
-  useEffect(() => {
-    localStorage.setItem('proforma_history', JSON.stringify(history));
-  }, [history]);
+    return () => clearTimeout(timeoutId);
+  }, [companyInfo, currentUserId, isAuthenticated]);
 
-  const handleLogin = (email: string, password: string) => {
-    try {
-      console.log('Connexion avec:', email);
-      setIsAuthenticated(true);
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('userEmail', email);
-      console.log('Connexion réussie');
-    } catch (e) {
-      console.error('Erreur lors de la connexion:', e);
-    }
+  const handleLogin = async (email: string, password: string) => {
+    // La connexion est déjà gérée dans Login.tsx
+    // On met juste à jour l'état local
+    setIsAuthenticated(true);
   };
 
   const handleRegister = (userData: {
@@ -141,47 +224,64 @@ export default function App() {
     password: string;
     company: string;
   }) => {
-    try {
-      console.log('Inscription avec:', userData.email);
-      // Sauvegarder les données utilisateur
-      localStorage.setItem('userName', userData.name);
-      localStorage.setItem('userEmail', userData.email);
-      localStorage.setItem('userCompany', userData.company);
-      
-      // Connecter automatiquement après l'inscription
-      setIsAuthenticated(true);
-      localStorage.setItem('isAuthenticated', 'true');
-      console.log('Inscription réussie');
-    } catch (e) {
-      console.error('Erreur lors de l\'inscription:', e);
-    }
+    // L'inscription est déjà gérée dans Register.tsx
+    // On met juste à jour l'état local
+    setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     try {
       console.log('Déconnexion en cours...');
-      // Nettoyer localStorage d'abord
-      localStorage.removeItem('isAuthenticated');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userCompany');
-      
-      console.log('Déconnexion terminée, rechargement de la page...');
-      
-      // Recharger la page pour forcer le re-render
-      window.location.reload();
+      // Déconnexion de Supabase
+      await supabase.auth.signOut();
+      // Mettre à jour l'état
+      setIsAuthenticated(false);
+      console.log('Déconnexion terminée');
     } catch (e) {
       console.error('Erreur lors de la déconnexion:', e);
     }
   };
 
+  // Afficher un écran de chargement pendant la vérification de la session (max 3 secondes)
+  if (isCheckingAuth) {
+    return (
+      <div className="h-screen bg-gradient-to-br from-app-light-blue/30 via-white to-app-yellow/20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <div className="w-8 h-8 border-4 border-app-navy border-t-transparent rounded-full animate-spin"></div>
+          </div>
+          <p className="text-app-navy font-bold text-sm">Chargement...</p>
+          <p className="text-slate-400 text-xs mt-1">Vérification de la session</p>
+        </div>
+      </div>
+    );
+  }
+
   // Si non authentifié, afficher la page de connexion ou d'inscription
   if (!isAuthenticated) {
     console.log('État non authentifié, showRegister:', showRegister);
     if (showRegister) {
-      return <Register onRegister={handleRegister} onBackToLogin={() => setShowRegister(false)} />;
+      return (
+        <>
+          <SEO 
+            title="Inscription - XorForm"
+            description="Créez votre compte XorForm gratuitement pour générer des proformas et factures professionnels"
+          />
+          <Register onRegister={handleRegister} onBackToLogin={() => setShowRegister(false)} />
+          <SupabaseStatus />
+        </>
+      );
     }
-    return <Login onLogin={handleLogin} onShowRegister={() => setShowRegister(true)} />;
+    return (
+      <>
+        <SEO 
+          title="Connexion - XorForm"
+          description="Connectez-vous à XorForm pour accéder à votre générateur de proformas et factures"
+        />
+        <Login onLogin={handleLogin} onShowRegister={() => setShowRegister(true)} />
+        <SupabaseStatus />
+      </>
+    );
   }
 
   console.log('État authentifié, affichage de l\'application');
@@ -201,23 +301,20 @@ export default function App() {
     );
   };
 
-  const deleteSelected = () => {
+  const deleteSelected = async () => {
     if (selectedHistoryIds.length === 0) return;
     if (confirm(`Voulez-vous vraiment supprimer ${selectedHistoryIds.length} proformas ?`)) {
-      setHistory(history.filter(p => !selectedHistoryIds.includes(p.id)));
-      setSelectedHistoryIds([]);
+      const success = await deleteMultipleProformas(selectedHistoryIds);
+      if (success) {
+        setHistory(history.filter(p => !selectedHistoryIds.includes(p.id)));
+        setSelectedHistoryIds([]);
+      } else {
+        alert('Erreur lors de la suppression des proformas');
+      }
     }
   };
 
   // Effects
-  useEffect(() => {
-    localStorage.setItem('company_info', JSON.stringify(companyInfo));
-  }, [companyInfo]);
-
-  useEffect(() => {
-    localStorage.setItem('proforma_history', JSON.stringify(history));
-  }, [history]);
-
   // Actions
   const addItem = () => {
     setItems([...items, { id: generateId(), description: '', quantity: 1, unitPrice: 0 }]);
@@ -233,8 +330,18 @@ export default function App() {
     setItems(items.map(item => item.id === id ? { ...item, ...updates } : item));
   };
 
-  const saveProforma = () => {
-    if (!client.name) return;
+  const saveProforma = async () => {
+    if (!client.name || !currentUserId) {
+      console.warn('⚠️ Impossible de sauvegarder:', { 
+        hasClientName: !!client.name, 
+        hasUserId: !!currentUserId,
+        currentUserId 
+      });
+      if (!currentUserId) {
+        alert('Erreur: Utilisateur non connecté. Veuillez vous reconnecter.');
+      }
+      return;
+    }
     
     const newProforma: Proforma = {
       id: viewingHistoryId || currentId,
@@ -247,8 +354,23 @@ export default function App() {
       total
     };
 
-    setHistory([newProforma, ...history.filter(p => p.id !== (viewingHistoryId || currentId))]);
-    resetForm();
+    console.log('🚀 Appel de saveProformaToSupabase avec:', {
+      userId: currentUserId,
+      proformaId: newProforma.id
+    });
+
+    // Sauvegarder dans Supabase
+    const success = await saveProformaToSupabase(currentUserId, newProforma);
+    
+    if (success) {
+      console.log('✅ Sauvegarde réussie, mise à jour de l\'état local');
+      // Mettre à jour l'état local
+      setHistory([newProforma, ...history.filter(p => p.id !== (viewingHistoryId || currentId))]);
+      resetForm();
+    } else {
+      console.error('❌ Échec de la sauvegarde');
+      alert('Erreur lors de la sauvegarde du proforma. Vérifiez la console pour plus de détails.');
+    }
   };
 
   const resetForm = () => {
@@ -263,8 +385,13 @@ export default function App() {
     setProformaNumber(`${prefix}-${new Date().getFullYear()}-${count.toString().padStart(3, '0')}`);
   };
 
-  const deleteFromHistory = (id: string) => {
-    setHistory(history.filter(p => p.id !== id));
+  const deleteFromHistory = async (id: string) => {
+    const success = await deleteProforma(id);
+    if (success) {
+      setHistory(history.filter(p => p.id !== id));
+    } else {
+      alert('Erreur lors de la suppression du proforma');
+    }
   };
 
   const handleExport = async (p: Proforma) => {
@@ -326,6 +453,10 @@ export default function App() {
 
   return (
     <>
+    <SEO 
+      title="XorForm - Générateur de Proforma et Factures Professionnel"
+      description="Créez des proformas et factures professionnels en quelques clics. Solution gratuite, intuitive et sécurisée pour gérer vos devis et facturations."
+    />
     <div className="h-screen bg-white text-app-navy font-sans flex flex-col overflow-hidden">
       
       {/* Top Navigation Bar */}
@@ -582,7 +713,7 @@ export default function App() {
                 disabled={!client.name || total === 0}
                 className="w-full bg-app-navy text-white py-3 rounded-lg font-bold text-sm hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest shadow-lg shadow-app-navy/10"
               >
-                {viewingHistoryId ? 'Mettre à jour' : 'Sauvegarder en local'}
+                {viewingHistoryId ? 'Mettre à jour' : 'Sauvegarder'}
               </button>
             </div>
             <p className="text-[10px] text-app-navy/40 mt-3 text-center italic">Auto-sauvegarde activée</p>
@@ -1252,6 +1383,7 @@ export default function App() {
           {viewingHistoryId ? 'MÀJ' : 'Enregistrer'}
         </button>
       </div>
+      <SupabaseStatus />
     </>
   );
 }
