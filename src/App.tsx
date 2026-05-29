@@ -37,6 +37,7 @@ import {
 } from './lib/supabase-helpers';
 import { validateProforma, validateCompanyInfo } from './lib/validation';
 import { formatValidationErrors } from './lib/errors';
+import { perfMonitor, runPerformanceDiagnostic } from './lib/performance';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",

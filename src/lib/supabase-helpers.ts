@@ -2,6 +2,7 @@ import { supabase } from './supabase';
 import { Proforma, CompanyInfo } from '../types';
 import { createError, handleError, ErrorCodes, AppError } from './errors';
 import { getCache, setCache, invalidateCache } from './cache';
+import { perfMonitor } from './performance';
 
 /**
  * Fonctions utilitaires pour gérer les données avec Supabase
@@ -17,22 +18,28 @@ export interface OperationResult<T = void> {
 // ==================== COMPANY SETTINGS ====================
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
+  perfMonitor.start('loadCompanySettings');
+  
   try {
     // ⚡ OPTIMISATION: Vérifier le cache d'abord
     const cacheKey = `company_settings_${userId}`;
     const cached = getCache<CompanyInfo>(cacheKey);
     if (cached) {
       console.log('⚡ Paramètres chargés depuis le cache');
+      perfMonitor.end('loadCompanySettings');
       return cached;
     }
 
-    console.log('📥 Chargement paramètres...', userId.substring(0, 8));
+    console.log('📥 Chargement paramètres depuis Supabase...', userId.substring(0, 8));
+    perfMonitor.start('supabase_company_settings_query');
     
     const { data, error } = await supabase
       .from('company_settings')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
+
+    perfMonitor.end('supabase_company_settings_query');
 
     if (error) {
       console.error('❌ Erreur Supabase:', error.code, error.message);
@@ -44,11 +51,13 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
         console.error('🗄️ TABLE MANQUANTE ! Exécutez supabase-schema-fixed.sql');
       }
       
+      perfMonitor.end('loadCompanySettings');
       throw error;
     }
 
     if (!data) {
       console.warn('⚠️ Aucun paramètre trouvé. Exécutez fix_company_settings_rls.sql');
+      perfMonitor.end('loadCompanySettings');
       return null;
     }
 
@@ -78,10 +87,12 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
     setCache(cacheKey, settings);
     
     console.log('✅ Paramètres chargés:', settings.name);
+    perfMonitor.end('loadCompanySettings');
     return settings;
   } catch (err) {
     const error = handleError(err);
     console.error('❌ Erreur chargement:', error.code);
+    perfMonitor.end('loadCompanySettings');
     return null;
   }
 }
@@ -167,15 +178,20 @@ export async function saveCompanySettings(
 // ==================== PROFORMAS ====================
 
 export async function loadProformas(userId: string): Promise<Proforma[]> {
+  perfMonitor.start('loadProformas');
+  
   try {
     // ⚡ OPTIMISATION: Vérifier le cache d'abord
     const cacheKey = `proformas_${userId}`;
     const cached = getCache<Proforma[]>(cacheKey);
     if (cached) {
       console.log('⚡ Proformas chargés depuis le cache:', cached.length);
+      perfMonitor.end('loadProformas');
       return cached;
     }
 
+    perfMonitor.start('supabase_proformas_query');
+    
     // ⚡ OPTIMISATION: Limiter à 50 proformas les plus récents
     const { data, error } = await supabase
       .from('proformas')
@@ -184,12 +200,18 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
       .order('date', { ascending: false })
       .limit(50);
 
+    perfMonitor.end('supabase_proformas_query');
+
     if (error) {
       console.error('Erreur lors du chargement des proformas:', error);
+      perfMonitor.end('loadProformas');
       return [];
     }
 
-    if (!data) return [];
+    if (!data) {
+      perfMonitor.end('loadProformas');
+      return [];
+    }
 
     // Convertir les données Supabase vers le format Proforma
     const proformas = data.map(item => ({
@@ -209,9 +231,11 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
     // ⚡ OPTIMISATION: Mettre en cache
     setCache(cacheKey, proformas);
 
+    perfMonitor.end('loadProformas');
     return proformas;
   } catch (err) {
     console.error('Erreur inattendue:', err);
+    perfMonitor.end('loadProformas');
     return [];
   }
 }
