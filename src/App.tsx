@@ -53,14 +53,14 @@ export default function App() {
 
   const [showRegister, setShowRegister] = useState(false);
 
-  // Timeout de sécurité pour forcer le chargement après 5 secondes
+  // ⚡ OPTIMISATION: Timeout réduit à 2 secondes pour affichage plus rapide
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isCheckingAuth) {
         console.warn('Timeout de chargement - affichage de la page');
         setIsCheckingAuth(false);
       }
-    }, 5000);
+    }, 2000); // Réduit de 5s à 2s
 
     return () => clearTimeout(timeout);
   }, [isCheckingAuth]);
@@ -72,18 +72,21 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         setIsAuthenticated(!!session);
         
+        // ⚡ OPTIMISATION: Afficher l'interface immédiatement
+        setIsCheckingAuth(false);
+        
         if (session?.user) {
           setCurrentUserId(session.user.id);
           
-          // ⚡ OPTIMISATION: Chargement parallèle des données
-          try {
-            console.log('📥 Chargement initial...', { userId: session.user.id });
-            
-            const [settings, proformas] = await Promise.all([
-              loadCompanySettings(session.user.id),
-              loadProformas(session.user.id)
-            ]);
-            
+          // ⚡ OPTIMISATION: Charger les données en arrière-plan (non bloquant)
+          console.log('📥 Chargement initial en arrière-plan...', { userId: session.user.id });
+          setIsLoadingData(true);
+          
+          // Charger en parallèle sans bloquer l'interface
+          Promise.all([
+            loadCompanySettings(session.user.id),
+            loadProformas(session.user.id)
+          ]).then(([settings, proformas]) => {
             console.log('✅ Données chargées:', { hasSettings: !!settings, proformas: proformas.length });
             
             if (settings) {
@@ -91,14 +94,15 @@ export default function App() {
             }
             
             setHistory(proformas);
-          } catch (loadError) {
+            setIsLoadingData(false);
+          }).catch(loadError => {
             console.error('❌ Erreur chargement:', loadError);
-          }
+            setIsLoadingData(false);
+          });
         }
       } catch (error) {
         console.error('Erreur session:', error);
         setIsAuthenticated(false);
-      } finally {
         setIsCheckingAuth(false);
       }
     };
@@ -115,18 +119,21 @@ export default function App() {
         
         // ⚡ OPTIMISATION: Charger uniquement lors de SIGNED_IN, pas lors des rafraîchissements
         if (event === 'SIGNED_IN') {
-          console.log('📥 Rechargement après connexion...');
-          try {
-            const [settings, proformas] = await Promise.all([
-              loadCompanySettings(session.user.id),
-              loadProformas(session.user.id)
-            ]);
-            
+          console.log('📥 Rechargement après connexion en arrière-plan...');
+          setIsLoadingData(true);
+          
+          // Charger en arrière-plan sans bloquer
+          Promise.all([
+            loadCompanySettings(session.user.id),
+            loadProformas(session.user.id)
+          ]).then(([settings, proformas]) => {
             if (settings) setCompanyInfo(settings);
             setHistory(proformas);
-          } catch (loadError) {
+            setIsLoadingData(false);
+          }).catch(loadError => {
             console.error('❌ Erreur rechargement:', loadError);
-          }
+            setIsLoadingData(false);
+          });
         }
       } else {
         setCurrentUserId(null);
@@ -170,6 +177,7 @@ export default function App() {
   const [mobileView, setMobileView] = useState<'editor' | 'preview'>('editor');
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(false); // ⚡ Nouveau: indicateur de chargement
 
   // Derivatives - TOUS LES HOOKS AVANT LE RETURN
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0), [items]);
