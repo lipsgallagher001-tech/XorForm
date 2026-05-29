@@ -35,6 +35,8 @@ import {
   deleteProforma,
   deleteMultipleProformas 
 } from './lib/supabase-helpers';
+import { validateProforma, validateCompanyInfo } from './lib/validation';
+import { formatValidationErrors } from './lib/errors';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",
@@ -256,30 +258,45 @@ export default function App() {
   };
 
   const handleSaveAndCloseSettings = async () => {
-    if (currentUserId) {
-      setIsSavingSettings(true);
-      console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
-      console.log('📋 Données à sauvegarder:', companyInfo);
-      console.log('👤 User ID:', currentUserId);
-      
-      const success = await saveCompanySettings(currentUserId, companyInfo);
-      setIsSavingSettings(false);
-      
-      if (success) {
-        console.log('✅ Sauvegarde réussie !');
-        setSettingsSaved(true);
-        // Fermer immédiatement après avoir affiché le message de succès
-        window.setTimeout(() => {
-          setSettingsSaved(false);
-          setShowSettings(false);
-        }, 1500);
-      } else {
-        console.error('❌ Échec de la sauvegarde');
-        alert('Erreur lors de la sauvegarde des paramètres. Vérifiez la console.');
-      }
-    } else {
-      console.error('❌ Pas de currentUserId');
+    if (!currentUserId) {
       alert('Erreur: Utilisateur non connecté');
+      return;
+    }
+
+    // ✅ VALIDATION
+    const validation = validateCompanyInfo(companyInfo);
+    if (!validation.success) {
+      const errors = formatValidationErrors(validation.error.errors);
+      alert(`Erreurs de validation:\n\n${errors}`);
+      console.error('Validation errors:', validation.error);
+      return;
+    }
+
+    setIsSavingSettings(true);
+    console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
+    console.log('📋 Données à sauvegarder:', companyInfo);
+    console.log('👤 User ID:', currentUserId);
+    
+    const result = await saveCompanySettings(currentUserId, validation.data);
+    setIsSavingSettings(false);
+    
+    if (result.success) {
+      console.log('✅ Sauvegarde réussie !');
+      setSettingsSaved(true);
+      
+      // Afficher un avertissement si sauvegarde locale uniquement
+      if (result.error) {
+        console.warn('⚠️', result.error.userMessage);
+      }
+      
+      // Fermer immédiatement après avoir affiché le message de succès
+      window.setTimeout(() => {
+        setSettingsSaved(false);
+        setShowSettings(false);
+      }, 1500);
+    } else {
+      console.error('❌ Échec de la sauvegarde');
+      alert(result.error?.userMessage || 'Erreur lors de la sauvegarde des paramètres.');
     }
   };
 
@@ -359,12 +376,12 @@ export default function App() {
   const deleteSelected = async () => {
     if (selectedHistoryIds.length === 0) return;
     if (confirm(`Voulez-vous vraiment supprimer ${selectedHistoryIds.length} proformas ?`)) {
-      const success = await deleteMultipleProformas(selectedHistoryIds);
-      if (success) {
+      const result = await deleteMultipleProformas(selectedHistoryIds);
+      if (result.success) {
         setHistory(history.filter(p => !selectedHistoryIds.includes(p.id)));
         setSelectedHistoryIds([]);
       } else {
-        alert('Erreur lors de la suppression des proformas');
+        alert(result.error?.userMessage || 'Erreur lors de la suppression des proformas');
       }
     }
   };
@@ -394,11 +411,13 @@ export default function App() {
       });
       if (!currentUserId) {
         alert('Erreur: Utilisateur non connecté. Veuillez vous reconnecter.');
+      } else {
+        alert('Veuillez remplir le nom du client.');
       }
       return;
     }
     
-    const newProforma: Proforma = {
+    const proformaData = {
       id: viewingHistoryId || currentId,
       type: docType,
       number: proformaNumber,
@@ -409,22 +428,31 @@ export default function App() {
       total
     };
 
+    // ✅ VALIDATION
+    const validation = validateProforma(proformaData);
+    if (!validation.success) {
+      const errors = formatValidationErrors(validation.error.errors);
+      alert(`Erreurs de validation:\n\n${errors}`);
+      console.error('Validation errors:', validation.error);
+      return;
+    }
+
     console.log('🚀 Appel de saveProformaToSupabase avec:', {
       userId: currentUserId,
-      proformaId: newProforma.id
+      proformaId: validation.data.id
     });
 
     // Sauvegarder dans Supabase
-    const success = await saveProformaToSupabase(currentUserId, newProforma);
+    const result = await saveProformaToSupabase(currentUserId, validation.data);
     
-    if (success) {
+    if (result.success) {
       console.log('✅ Sauvegarde réussie, mise à jour de l\'état local');
       // Mettre à jour l'état local
-      setHistory([newProforma, ...history.filter(p => p.id !== (viewingHistoryId || currentId))]);
+      setHistory([validation.data, ...history.filter(p => p.id !== (viewingHistoryId || currentId))]);
       resetForm();
     } else {
       console.error('❌ Échec de la sauvegarde');
-      alert('Erreur lors de la sauvegarde du proforma. Vérifiez la console pour plus de détails.');
+      alert(result.error?.userMessage || 'Erreur lors de la sauvegarde du proforma.');
     }
   };
 
@@ -441,11 +469,11 @@ export default function App() {
   };
 
   const deleteFromHistory = async (id: string) => {
-    const success = await deleteProforma(id);
-    if (success) {
+    const result = await deleteProforma(id);
+    if (result.success) {
       setHistory(history.filter(p => p.id !== id));
     } else {
-      alert('Erreur lors de la suppression du proforma');
+      alert(result.error?.userMessage || 'Erreur lors de la suppression du proforma');
     }
   };
 

@@ -1,9 +1,16 @@
 import { supabase } from './supabase';
 import { Proforma, CompanyInfo } from '../types';
+import { createError, handleError, ErrorCodes, AppError } from './errors';
 
 /**
  * Fonctions utilitaires pour gérer les données avec Supabase
  */
+
+export interface OperationResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: AppError;
+}
 
 // ==================== COMPANY SETTINGS ====================
 
@@ -75,80 +82,98 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
   }
 }
 
-export async function saveCompanySettings(userId: string, settings: CompanyInfo): Promise<boolean> {
+export async function saveCompanySettings(
+  userId: string, 
+  settings: CompanyInfo
+): Promise<OperationResult> {
   try {
     console.log('💾 Sauvegarde des paramètres d\'entreprise...', { userId, name: settings.name });
     
-    // FALLBACK: Sauvegarder dans localStorage si Supabase échoue
-    try {
-      const dataToSave = {
-        user_id: userId,
-        name: settings.name,
-        address: settings.address,
-        email: settings.email,
-        phone: settings.phone,
-        logo: settings.logo || null,
-        logo_width: settings.logoWidth || 15,
-        logo_height: settings.logoHeight || 15,
-        signature: settings.signature || null,
-        signature_width: settings.signatureWidth || 35,
-        signature_height: settings.signatureHeight || 25,
-        stamp: settings.stamp || null,
-        stamp_width: settings.stampWidth || 35,
-        stamp_height: settings.stampHeight || 25,
-        watermark: settings.watermark || null,
-        services: settings.services || null,
-        siret: settings.siret || null,
-        siren: settings.siren || null,
-        rcs: settings.rcs || null
-      };
+    const dataToSave = {
+      user_id: userId,
+      name: settings.name,
+      address: settings.address,
+      email: settings.email,
+      phone: settings.phone,
+      logo: settings.logo || null,
+      logo_width: settings.logoWidth || 15,
+      logo_height: settings.logoHeight || 15,
+      signature: settings.signature || null,
+      signature_width: settings.signatureWidth || 35,
+      signature_height: settings.signatureHeight || 25,
+      stamp: settings.stamp || null,
+      stamp_width: settings.stampWidth || 35,
+      stamp_height: settings.stampHeight || 25,
+      watermark: settings.watermark || null,
+      services: settings.services || null,
+      siret: settings.siret || null,
+      siren: settings.siren || null,
+      rcs: settings.rcs || null
+    };
 
-      // Vérifier si les paramètres existent déjà
-      const { data: existing } = await supabase
+    // Vérifier si les paramètres existent déjà
+    const { data: existing } = await supabase
+      .from('company_settings')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    let result;
+    if (existing) {
+      // Mise à jour
+      console.log('🔄 Mise à jour des paramètres existants');
+      result = await supabase
         .from('company_settings')
-        .select('id')
+        .update({
+          ...dataToSave,
+          updated_at: new Date().toISOString()
+        })
         .eq('user_id', userId)
-        .single();
-
-      let result;
-      if (existing) {
-        // Mise à jour
-        console.log('🔄 Mise à jour des paramètres existants');
-        result = await supabase
-          .from('company_settings')
-          .update({
-            ...dataToSave,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .select();
-      } else {
-        // Insertion
-        console.log('➕ Insertion de nouveaux paramètres');
-        result = await supabase
-          .from('company_settings')
-          .insert(dataToSave)
-          .select();
-      }
-
-      if (result.error) {
-        throw result.error;
-      }
-
-      console.log('✅ Paramètres sauvegardés avec succès dans Supabase');
-      // Sauvegarder aussi dans localStorage comme backup
-      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
-      return true;
-    } catch (supabaseError) {
-      console.warn('⚠️ Supabase non disponible, sauvegarde dans localStorage', supabaseError);
-      // Fallback: sauvegarder dans localStorage
-      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
-      console.log('✅ Paramètres sauvegardés dans localStorage (local)');
-      return true;
+        .select();
+    } else {
+      // Insertion
+      console.log('➕ Insertion de nouveaux paramètres');
+      result = await supabase
+        .from('company_settings')
+        .insert(dataToSave)
+        .select();
     }
+
+    if (result.error) {
+      throw result.error;
+    }
+
+    console.log('✅ Paramètres sauvegardés avec succès dans Supabase');
+    // Sauvegarder aussi dans localStorage comme backup
+    localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
+    return { success: true };
+    
   } catch (err) {
-    console.error('❌ Erreur inattendue:', err);
-    return false;
+    const error = handleError(err);
+    console.error('❌ Erreur lors de la sauvegarde:', error);
+    
+    // Fallback: sauvegarder dans localStorage
+    try {
+      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
+      console.log('⚠️ Sauvegardé dans localStorage uniquement');
+      return { 
+        success: true, 
+        error: new AppError(
+          'Saved to localStorage only',
+          'PARTIAL_SAVE',
+          'Paramètres sauvegardés localement uniquement (pas de connexion cloud)',
+          { originalError: error }
+        )
+      };
+    } catch (localErr) {
+      return { 
+        success: false, 
+        error: createError(ErrorCodes.SAVE_FAILED, { 
+          supabaseError: error, 
+          localStorageError: localErr 
+        })
+      };
+    }
   }
 }
 
@@ -189,7 +214,10 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
   }
 }
 
-export async function saveProforma(userId: string, proforma: Proforma): Promise<boolean> {
+export async function saveProforma(
+  userId: string, 
+  proforma: Proforma
+): Promise<OperationResult> {
   try {
     console.log('💾 Tentative de sauvegarde du proforma...', {
       userId,
@@ -242,26 +270,26 @@ export async function saveProforma(userId: string, proforma: Proforma): Promise<
     }
 
     if (result.error) {
-      console.error('❌ Erreur Supabase lors de la sauvegarde du proforma:', result.error);
-      console.error('Détails de l\'erreur:', {
-        message: result.error.message,
-        details: result.error.details,
-        hint: result.error.hint,
-        code: result.error.code
-      });
-      return false;
+      throw result.error;
     }
 
     console.log('✅ Proforma sauvegardé avec succès:', result.data);
-    return true;
-  } catch (err: any) {
-    console.error('❌ Erreur inattendue lors de la sauvegarde:', err);
-    console.error('Stack trace:', err.stack);
-    return false;
+    return { success: true, data: result.data };
+    
+  } catch (err) {
+    const error = handleError(err);
+    console.error('❌ Erreur lors de la sauvegarde du proforma:', error);
+    return { 
+      success: false, 
+      error: createError(ErrorCodes.SAVE_FAILED, { 
+        proformaId: proforma.id,
+        originalError: error 
+      })
+    };
   }
 }
 
-export async function deleteProforma(proformaId: string): Promise<boolean> {
+export async function deleteProforma(proformaId: string): Promise<OperationResult> {
   try {
     const { error } = await supabase
       .from('proformas')
@@ -269,18 +297,25 @@ export async function deleteProforma(proformaId: string): Promise<boolean> {
       .eq('id', proformaId);
 
     if (error) {
-      console.error('Erreur lors de la suppression du proforma:', error);
-      return false;
+      throw error;
     }
 
-    return true;
+    console.log('✅ Proforma supprimé avec succès');
+    return { success: true };
   } catch (err) {
-    console.error('Erreur inattendue:', err);
-    return false;
+    const error = handleError(err);
+    console.error('❌ Erreur lors de la suppression du proforma:', error);
+    return { 
+      success: false, 
+      error: createError(ErrorCodes.DELETE_FAILED, { 
+        proformaId,
+        originalError: error 
+      })
+    };
   }
 }
 
-export async function deleteMultipleProformas(proformaIds: string[]): Promise<boolean> {
+export async function deleteMultipleProformas(proformaIds: string[]): Promise<OperationResult> {
   try {
     const { error } = await supabase
       .from('proformas')
@@ -288,13 +323,20 @@ export async function deleteMultipleProformas(proformaIds: string[]): Promise<bo
       .in('id', proformaIds);
 
     if (error) {
-      console.error('Erreur lors de la suppression des proformas:', error);
-      return false;
+      throw error;
     }
 
-    return true;
+    console.log(`✅ ${proformaIds.length} proformas supprimés avec succès`);
+    return { success: true };
   } catch (err) {
-    console.error('Erreur inattendue:', err);
-    return false;
+    const error = handleError(err);
+    console.error('❌ Erreur lors de la suppression des proformas:', error);
+    return { 
+      success: false, 
+      error: createError(ErrorCodes.DELETE_FAILED, { 
+        count: proformaIds.length,
+        originalError: error 
+      })
+    };
   }
 }
