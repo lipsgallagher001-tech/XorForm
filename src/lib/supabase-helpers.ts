@@ -22,20 +22,15 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       .from('company_settings')
       .select('*')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle(); // ✅ Utiliser maybeSingle() au lieu de single()
 
     if (error) {
-      // Si l'erreur est "pas de données trouvées", c'est normal pour un nouvel utilisateur
-      if (error.code === 'PGRST116') {
-        console.log('ℹ️ Aucun paramètre trouvé (nouvel utilisateur)');
-        return null;
-      }
       console.error('❌ Erreur Supabase:', error);
       throw error;
     }
 
     if (!data) {
-      console.log('ℹ️ Aucun paramètre trouvé');
+      console.log('ℹ️ Aucun paramètre trouvé (nouvel utilisateur)');
       return null;
     }
 
@@ -61,12 +56,13 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       rcs: data.rcs || undefined
     };
     
-    console.log('✅ Paramètres chargés depuis Supabase');
+    console.log('✅ Paramètres chargés depuis Supabase:', settings);
     return settings;
   } catch (err) {
     const error = handleError(err);
     console.error('❌ Erreur lors du chargement des paramètres:', error);
-    throw error;
+    // ✅ Retourner null au lieu de throw pour ne pas bloquer l'app
+    return null;
   }
 }
 

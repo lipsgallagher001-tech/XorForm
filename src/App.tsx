@@ -74,20 +74,15 @@ export default function App() {
         if (session?.user) {
           setCurrentUserId(session.user.id);
           
-          // Charger les données depuis Supabase avec timeout
+          // Charger les données depuis Supabase
           try {
-            console.log('📥 Chargement des données utilisateur...');
-            const [settings, proformas] = await Promise.race([
-              Promise.all([
-                loadCompanySettings(session.user.id),
-                loadProformas(session.user.id)
-              ]),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 3000)
-              )
-            ]) as [CompanyInfo | null, Proforma[]];
+            console.log('📥 Chargement des données utilisateur...', { userId: session.user.id });
+            
+            const settings = await loadCompanySettings(session.user.id);
+            const proformas = await loadProformas(session.user.id);
             
             console.log('📦 Paramètres chargés:', settings);
+            console.log('📦 Proformas chargés:', proformas.length);
             
             if (settings) {
               console.log('✅ Application des paramètres chargés');
@@ -98,7 +93,7 @@ export default function App() {
             
             setHistory(proformas);
           } catch (loadError) {
-            console.warn('Erreur lors du chargement des données (tables peut-être non créées):', loadError);
+            console.error('❌ Erreur lors du chargement des données:', loadError);
             // Continuer avec les valeurs par défaut
           }
         }
@@ -123,17 +118,13 @@ export default function App() {
         // Ne recharger les données que lors de la connexion initiale (SIGNED_IN)
         // Pas lors des rafraîchissements de token (TOKEN_REFRESHED)
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          console.log('📥 Chargement des données utilisateur...');
+          console.log('📥 Chargement des données utilisateur...', { userId: session.user.id });
           try {
-            const [settings, proformas] = await Promise.race([
-              Promise.all([
-                loadCompanySettings(session.user.id),
-                loadProformas(session.user.id)
-              ]),
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Timeout')), 3000)
-              )
-            ]) as [CompanyInfo | null, Proforma[]];
+            const settings = await loadCompanySettings(session.user.id);
+            const proformas = await loadProformas(session.user.id);
+            
+            console.log('📦 Paramètres chargés:', settings);
+            console.log('📦 Proformas chargés:', proformas.length);
             
             if (settings) {
               setCompanyInfo(settings);
@@ -141,7 +132,7 @@ export default function App() {
             
             setHistory(proformas);
           } catch (loadError) {
-            console.warn('Erreur lors du chargement des données:', loadError);
+            console.error('❌ Erreur lors du chargement des données:', loadError);
             // Continuer avec les valeurs par défaut
           }
         }
