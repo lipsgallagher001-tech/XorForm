@@ -74,6 +74,7 @@ export default function App() {
           
           // Charger les données depuis Supabase avec timeout
           try {
+            console.log('📥 Chargement des données utilisateur...');
             const [settings, proformas] = await Promise.race([
               Promise.all([
                 loadCompanySettings(session.user.id),
@@ -84,8 +85,13 @@ export default function App() {
               )
             ]) as [CompanyInfo | null, Proforma[]];
             
+            console.log('📦 Paramètres chargés:', settings);
+            
             if (settings) {
+              console.log('✅ Application des paramètres chargés');
               setCompanyInfo(settings);
+            } else {
+              console.log('⚠️ Aucun paramètre trouvé, utilisation des valeurs par défaut');
             }
             
             setHistory(proformas);
@@ -253,10 +259,14 @@ export default function App() {
     if (currentUserId) {
       setIsSavingSettings(true);
       console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
+      console.log('📋 Données à sauvegarder:', companyInfo);
+      console.log('👤 User ID:', currentUserId);
+      
       const success = await saveCompanySettings(currentUserId, companyInfo);
       setIsSavingSettings(false);
       
       if (success) {
+        console.log('✅ Sauvegarde réussie !');
         setSettingsSaved(true);
         // Afficher le message pendant 1.5 secondes puis fermer
         setTimeout(() => {
@@ -264,10 +274,27 @@ export default function App() {
           setShowSettings(false);
         }, 1500);
       } else {
-        alert('Erreur lors de la sauvegarde des paramètres');
+        console.error('❌ Échec de la sauvegarde');
+        alert('Erreur lors de la sauvegarde des paramètres. Vérifiez la console.');
       }
     } else {
+      console.error('❌ Pas de currentUserId');
+      alert('Erreur: Utilisateur non connecté');
       setShowSettings(false);
+    }
+  };
+
+  const handleReloadSettings = async () => {
+    if (currentUserId) {
+      console.log('🔄 Rechargement manuel des paramètres...');
+      const settings = await loadCompanySettings(currentUserId);
+      console.log('📦 Paramètres rechargés:', settings);
+      if (settings) {
+        setCompanyInfo(settings);
+        alert('Paramètres rechargés depuis Supabase');
+      } else {
+        alert('Aucun paramètre trouvé dans Supabase');
+      }
     }
   };
 
@@ -1079,7 +1106,15 @@ export default function App() {
               className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl relative z-10 flex flex-col"
             >
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-                <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
+                <div>
+                  <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
+                  <button 
+                    onClick={handleReloadSettings}
+                    className="text-xs text-blue-600 hover:underline mt-1"
+                  >
+                    🔄 Recharger depuis Supabase (debug)
+                  </button>
+                </div>
                 <button 
                   onClick={handleSaveAndCloseSettings} 
                   disabled={isSavingSettings}
