@@ -324,9 +324,9 @@ export default function App() {
   };
 
   const deleteSelected = async () => {
-    if (selectedHistoryIds.length === 0) return;
+    if (selectedHistoryIds.length === 0 || !currentUserId) return;
     if (confirm(`Voulez-vous vraiment supprimer ${selectedHistoryIds.length} proformas ?`)) {
-      const result = await deleteMultipleProformas(selectedHistoryIds);
+      const result = await deleteMultipleProformas(selectedHistoryIds, currentUserId);
       if (result.success) {
         setHistory(history.filter(p => !selectedHistoryIds.includes(p.id)));
         setSelectedHistoryIds([]);
@@ -419,7 +419,8 @@ export default function App() {
   };
 
   const deleteFromHistory = async (id: string) => {
-    const result = await deleteProforma(id);
+    if (!currentUserId) return;
+    const result = await deleteProforma(id, currentUserId);
     if (result.success) {
       setHistory(history.filter(p => p.id !== id));
     } else {

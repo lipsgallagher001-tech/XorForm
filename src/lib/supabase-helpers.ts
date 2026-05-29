@@ -1,9 +1,11 @@
 import { supabase } from './supabase';
 import { Proforma, CompanyInfo } from '../types';
 import { createError, handleError, ErrorCodes, AppError } from './errors';
+import { getCache, setCache, invalidateCache } from './cache';
 
 /**
  * Fonctions utilitaires pour gérer les données avec Supabase
+ * Optimisées avec système de cache pour améliorer les performances
  */
 
 export interface OperationResult<T = void> {
@@ -16,6 +18,14 @@ export interface OperationResult<T = void> {
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
   try {
+    // ⚡ OPTIMISATION: Vérifier le cache d'abord
+    const cacheKey = `company_settings_${userId}`;
+    const cached = getCache<CompanyInfo>(cacheKey);
+    if (cached) {
+      console.log('⚡ Paramètres chargés depuis le cache');
+      return cached;
+    }
+
     console.log('📥 Chargement paramètres...', userId.substring(0, 8));
     
     const { data, error } = await supabase
@@ -63,6 +73,9 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       siren: data.siren || undefined,
       rcs: data.rcs || undefined
     };
+    
+    // ⚡ OPTIMISATION: Mettre en cache
+    setCache(cacheKey, settings);
     
     console.log('✅ Paramètres chargés:', settings.name);
     return settings;
@@ -132,6 +145,9 @@ export async function saveCompanySettings(
 
     if (result.error) throw result.error;
 
+    // ⚡ OPTIMISATION: Invalider le cache après sauvegarde
+    invalidateCache(`company_settings_${userId}`);
+
     console.log('✅ Paramètres sauvegardés');
     return { success: true };
     
@@ -152,11 +168,21 @@ export async function saveCompanySettings(
 
 export async function loadProformas(userId: string): Promise<Proforma[]> {
   try {
+    // ⚡ OPTIMISATION: Vérifier le cache d'abord
+    const cacheKey = `proformas_${userId}`;
+    const cached = getCache<Proforma[]>(cacheKey);
+    if (cached) {
+      console.log('⚡ Proformas chargés depuis le cache:', cached.length);
+      return cached;
+    }
+
+    // ⚡ OPTIMISATION: Limiter à 50 proformas les plus récents
     const { data, error } = await supabase
       .from('proformas')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(50);
 
     if (error) {
       console.error('Erreur lors du chargement des proformas:', error);
@@ -166,7 +192,7 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
     if (!data) return [];
 
     // Convertir les données Supabase vers le format Proforma
-    return data.map(item => ({
+    const proformas = data.map(item => ({
       id: item.id,
       type: item.type as 'PROFORMA' | 'FACTURE',
       number: item.number,
@@ -179,6 +205,11 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
       discountPercent: item.discount_percent || 0,
       total: item.total
     }));
+
+    // ⚡ OPTIMISATION: Mettre en cache
+    setCache(cacheKey, proformas);
+
+    return proformas;
   } catch (err) {
     console.error('Erreur inattendue:', err);
     return [];
@@ -233,6 +264,9 @@ export async function saveProforma(
 
     if (result.error) throw result.error;
 
+    // ⚡ OPTIMISATION: Invalider le cache après sauvegarde
+    invalidateCache(`proformas_${userId}`);
+
     console.log('✅ Proforma sauvegardé');
     return { success: true, data: result.data };
     
@@ -249,7 +283,7 @@ export async function saveProforma(
   }
 }
 
-export async function deleteProforma(proformaId: string): Promise<OperationResult> {
+export async function deleteProforma(proformaId: string, userId: string): Promise<OperationResult> {
   try {
     const { error } = await supabase
       .from('proformas')
@@ -259,6 +293,9 @@ export async function deleteProforma(proformaId: string): Promise<OperationResul
     if (error) {
       throw error;
     }
+
+    // ⚡ OPTIMISATION: Invalider le cache après suppression
+    invalidateCache(`proformas_${userId}`);
 
     console.log('✅ Proforma supprimé avec succès');
     return { success: true };
@@ -275,7 +312,7 @@ export async function deleteProforma(proformaId: string): Promise<OperationResul
   }
 }
 
-export async function deleteMultipleProformas(proformaIds: string[]): Promise<OperationResult> {
+export async function deleteMultipleProformas(proformaIds: string[], userId: string): Promise<OperationResult> {
   try {
     const { error } = await supabase
       .from('proformas')
@@ -285,6 +322,9 @@ export async function deleteMultipleProformas(proformaIds: string[]): Promise<Op
     if (error) {
       throw error;
     }
+
+    // ⚡ OPTIMISATION: Invalider le cache après suppression
+    invalidateCache(`proformas_${userId}`);
 
     console.log(`✅ ${proformaIds.length} proformas supprimés avec succès`);
     return { success: true };
