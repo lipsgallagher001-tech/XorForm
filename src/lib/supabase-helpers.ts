@@ -16,23 +16,55 @@ export interface OperationResult<T = void> {
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
   try {
-    console.log('📥 Chargement des paramètres depuis Supabase...', { userId });
+    console.log('📥 [LOAD] Chargement des paramètres depuis Supabase...');
+    console.log('📥 [LOAD] User ID:', userId);
     
     const { data, error } = await supabase
       .from('company_settings')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle(); // ✅ Utiliser maybeSingle() au lieu de single()
+      .maybeSingle();
+
+    // Logs détaillés pour diagnostic
+    console.log('📥 [LOAD] Résultat Supabase:', { 
+      hasData: !!data, 
+      hasError: !!error,
+      dataPreview: data ? { name: data.name, email: data.email } : null
+    });
 
     if (error) {
-      console.error('❌ Erreur Supabase:', error);
+      console.error('❌ [LOAD] Erreur Supabase détectée:');
+      console.error('❌ [LOAD] Code:', error.code);
+      console.error('❌ [LOAD] Message:', error.message);
+      console.error('❌ [LOAD] Détails:', error.details);
+      console.error('❌ [LOAD] Hint:', error.hint);
+      
+      // Diagnostics spécifiques
+      if (error.code === '42501') {
+        console.error('🔒 [LOAD] PROBLÈME DE PERMISSIONS RLS !');
+        console.error('🔒 [LOAD] Les policies RLS bloquent la lecture.');
+        console.error('🔒 [LOAD] Solution: Exécutez fix_company_settings_rls.sql');
+      } else if (error.code === '42P01') {
+        console.error('🗄️ [LOAD] TABLE NON TROUVÉE !');
+        console.error('🗄️ [LOAD] La table company_settings n\'existe pas.');
+        console.error('🗄️ [LOAD] Solution: Exécutez supabase-schema-fixed.sql');
+      }
+      
       throw error;
     }
 
     if (!data) {
-      console.log('ℹ️ Aucun paramètre trouvé (nouvel utilisateur)');
+      console.warn('⚠️ [LOAD] Aucun paramètre trouvé pour cet utilisateur');
+      console.warn('⚠️ [LOAD] Vérifications à faire:');
+      console.warn('⚠️ [LOAD] 1. La ligne existe-t-elle dans company_settings avec ce user_id ?');
+      console.warn('⚠️ [LOAD] 2. Les policies RLS SELECT sont-elles configurées ?');
+      console.warn('⚠️ [LOAD] 3. Le user_id correspond-il à auth.uid() ?');
+      console.warn(`⚠️ [LOAD] User ID recherché: ${userId}`);
+      console.warn('⚠️ [LOAD] Solution: Exécutez fix_company_settings_rls.sql');
       return null;
     }
+
+    console.log('📦 [LOAD] Données brutes récupérées:', data);
 
     // Convertir les données Supabase vers le format CompanyInfo
     const settings: CompanyInfo = {
@@ -56,12 +88,20 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       rcs: data.rcs || undefined
     };
     
-    console.log('✅ Paramètres chargés depuis Supabase:', settings);
+    console.log('✅ [LOAD] Paramètres chargés avec succès depuis Supabase');
+    console.log('✅ [LOAD] Nom entreprise:', settings.name);
+    console.log('✅ [LOAD] Email:', settings.email);
     return settings;
   } catch (err) {
     const error = handleError(err);
-    console.error('❌ Erreur lors du chargement des paramètres:', error);
-    // ✅ Retourner null au lieu de throw pour ne pas bloquer l'app
+    console.error('❌ [LOAD] Erreur inattendue lors du chargement:');
+    console.error('❌ [LOAD] Type:', error.name);
+    console.error('❌ [LOAD] Message:', error.message);
+    console.error('❌ [LOAD] Code:', error.code);
+    console.error('❌ [LOAD] Détails:', error.details);
+    
+    // Retourner null au lieu de throw pour ne pas bloquer l'app
+    console.warn('⚠️ [LOAD] Retour de null - l\'application utilisera les valeurs par défaut');
     return null;
   }
 }

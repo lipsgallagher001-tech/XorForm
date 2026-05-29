@@ -74,27 +74,32 @@ export default function App() {
         if (session?.user) {
           setCurrentUserId(session.user.id);
           
-          // Charger les données depuis Supabase
+          // Charger les données de l'utilisateur depuis Supabase
           try {
-            console.log('📥 Chargement des données utilisateur...', { userId: session.user.id });
+            console.log('📥 Démarrage du chargement des données utilisateur...', { userId: session.user.id });
             
             const settings = await loadCompanySettings(session.user.id);
             const proformas = await loadProformas(session.user.id);
             
-            console.log('📦 Paramètres chargés:', settings);
-            console.log('📦 Proformas chargés:', proformas.length);
+            console.log('📦 Résultat des paramètres chargés:', settings);
+            console.log('📦 Nombre de proformas chargés:', proformas.length);
             
             if (settings) {
-              console.log('✅ Application des paramètres chargés');
+              console.log('✅ Application des paramètres de l\'entreprise dans l\'état global de l\'application');
               setCompanyInfo(settings);
             } else {
-              console.log('⚠️ Aucun paramètre trouvé, utilisation des valeurs par défaut');
+              console.warn(
+                '⚠️ Aucun paramètre trouvé en base pour cet utilisateur. ' +
+                'Les paramètres par défaut sont appliqués localement.\n' +
+                'Si vous avez déjà enregistré des paramètres, cela peut être dû à un problème de politique RLS ' +
+                'ou à un ID utilisateur différent dans la base.'
+              );
             }
             
             setHistory(proformas);
           } catch (loadError) {
-            console.error('❌ Erreur lors du chargement des données:', loadError);
-            // Continuer avec les valeurs par défaut
+            console.error('❌ Erreur critique lors du chargement initial des données:', loadError);
+            // Poursuite de l'exécution avec les valeurs par défaut
           }
         }
       } catch (error) {
@@ -118,22 +123,28 @@ export default function App() {
         // Ne recharger les données que lors de la connexion initiale (SIGNED_IN)
         // Pas lors des rafraîchissements de token (TOKEN_REFRESHED)
         if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-          console.log('📥 Chargement des données utilisateur...', { userId: session.user.id });
+          console.log('📥 Démarrage du chargement des données utilisateur via changement d\'état auth...', { userId: session.user.id });
           try {
             const settings = await loadCompanySettings(session.user.id);
             const proformas = await loadProformas(session.user.id);
             
-            console.log('📦 Paramètres chargés:', settings);
-            console.log('📦 Proformas chargés:', proformas.length);
+            console.log('📦 Résultat des paramètres chargés via auth:', settings);
+            console.log('📦 Nombre de proformas chargés via auth:', proformas.length);
             
             if (settings) {
+              console.log('✅ Application des paramètres de l\'entreprise chargés via changement d\'état auth');
               setCompanyInfo(settings);
+            } else {
+              console.warn(
+                '⚠️ Aucun paramètre trouvé en base pour cet utilisateur via auth. ' +
+                'Les paramètres par défaut sont appliqués localement.'
+              );
             }
             
             setHistory(proformas);
           } catch (loadError) {
-            console.error('❌ Erreur lors du chargement des données:', loadError);
-            // Continuer avec les valeurs par défaut
+            console.error('❌ Erreur critique lors du chargement des données via auth:', loadError);
+            // Poursuite de l'exécution avec les valeurs par défaut
           }
         }
       } else {
