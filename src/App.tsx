@@ -268,8 +268,8 @@ export default function App() {
       if (success) {
         console.log('✅ Sauvegarde réussie !');
         setSettingsSaved(true);
-        // Afficher le message pendant 1.5 secondes puis fermer
-        setTimeout(() => {
+        // Fermer immédiatement après avoir affiché le message de succès
+        window.setTimeout(() => {
           setSettingsSaved(false);
           setShowSettings(false);
         }, 1500);
@@ -280,7 +280,6 @@ export default function App() {
     } else {
       console.error('❌ Pas de currentUserId');
       alert('Erreur: Utilisateur non connecté');
-      setShowSettings(false);
     }
   };
 
