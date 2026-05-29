@@ -16,8 +16,7 @@ export interface OperationResult<T = void> {
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
   try {
-    console.log('📥 [LOAD] Chargement des paramètres depuis Supabase...');
-    console.log('📥 [LOAD] User ID:', userId);
+    console.log('📥 Chargement paramètres...', userId.substring(0, 8));
     
     const { data, error } = await supabase
       .from('company_settings')
@@ -25,46 +24,23 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       .eq('user_id', userId)
       .maybeSingle();
 
-    // Logs détaillés pour diagnostic
-    console.log('📥 [LOAD] Résultat Supabase:', { 
-      hasData: !!data, 
-      hasError: !!error,
-      dataPreview: data ? { name: data.name, email: data.email } : null
-    });
-
     if (error) {
-      console.error('❌ [LOAD] Erreur Supabase détectée:');
-      console.error('❌ [LOAD] Code:', error.code);
-      console.error('❌ [LOAD] Message:', error.message);
-      console.error('❌ [LOAD] Détails:', error.details);
-      console.error('❌ [LOAD] Hint:', error.hint);
+      console.error('❌ Erreur Supabase:', error.code, error.message);
       
       // Diagnostics spécifiques
       if (error.code === '42501') {
-        console.error('🔒 [LOAD] PROBLÈME DE PERMISSIONS RLS !');
-        console.error('🔒 [LOAD] Les policies RLS bloquent la lecture.');
-        console.error('🔒 [LOAD] Solution: Exécutez fix_company_settings_rls.sql');
+        console.error('🔒 PROBLÈME RLS ! Exécutez fix_company_settings_rls.sql');
       } else if (error.code === '42P01') {
-        console.error('🗄️ [LOAD] TABLE NON TROUVÉE !');
-        console.error('🗄️ [LOAD] La table company_settings n\'existe pas.');
-        console.error('🗄️ [LOAD] Solution: Exécutez supabase-schema-fixed.sql');
+        console.error('🗄️ TABLE MANQUANTE ! Exécutez supabase-schema-fixed.sql');
       }
       
       throw error;
     }
 
     if (!data) {
-      console.warn('⚠️ [LOAD] Aucun paramètre trouvé pour cet utilisateur');
-      console.warn('⚠️ [LOAD] Vérifications à faire:');
-      console.warn('⚠️ [LOAD] 1. La ligne existe-t-elle dans company_settings avec ce user_id ?');
-      console.warn('⚠️ [LOAD] 2. Les policies RLS SELECT sont-elles configurées ?');
-      console.warn('⚠️ [LOAD] 3. Le user_id correspond-il à auth.uid() ?');
-      console.warn(`⚠️ [LOAD] User ID recherché: ${userId}`);
-      console.warn('⚠️ [LOAD] Solution: Exécutez fix_company_settings_rls.sql');
+      console.warn('⚠️ Aucun paramètre trouvé. Exécutez fix_company_settings_rls.sql');
       return null;
     }
-
-    console.log('📦 [LOAD] Données brutes récupérées:', data);
 
     // Convertir les données Supabase vers le format CompanyInfo
     const settings: CompanyInfo = {
@@ -88,20 +64,11 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       rcs: data.rcs || undefined
     };
     
-    console.log('✅ [LOAD] Paramètres chargés avec succès depuis Supabase');
-    console.log('✅ [LOAD] Nom entreprise:', settings.name);
-    console.log('✅ [LOAD] Email:', settings.email);
+    console.log('✅ Paramètres chargés:', settings.name);
     return settings;
   } catch (err) {
     const error = handleError(err);
-    console.error('❌ [LOAD] Erreur inattendue lors du chargement:');
-    console.error('❌ [LOAD] Type:', error.name);
-    console.error('❌ [LOAD] Message:', error.message);
-    console.error('❌ [LOAD] Code:', error.code);
-    console.error('❌ [LOAD] Détails:', error.details);
-    
-    // Retourner null au lieu de throw pour ne pas bloquer l'app
-    console.warn('⚠️ [LOAD] Retour de null - l\'application utilisera les valeurs par défaut');
+    console.error('❌ Erreur chargement:', error.code);
     return null;
   }
 }
@@ -111,7 +78,7 @@ export async function saveCompanySettings(
   settings: CompanyInfo
 ): Promise<OperationResult> {
   try {
-    console.log('💾 Sauvegarde des paramètres dans Supabase...', { userId, name: settings.name });
+    console.log('💾 Sauvegarde paramètres...', settings.name);
     
     const dataToSave = {
       user_id: userId,
@@ -142,14 +109,11 @@ export async function saveCompanySettings(
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (selectError) {
-      throw selectError;
-    }
+    if (selectError) throw selectError;
 
     let result;
     if (existing) {
       // Mise à jour
-      console.log('🔄 Mise à jour des paramètres existants');
       result = await supabase
         .from('company_settings')
         .update({
@@ -160,23 +124,20 @@ export async function saveCompanySettings(
         .select();
     } else {
       // Insertion
-      console.log('➕ Insertion de nouveaux paramètres');
       result = await supabase
         .from('company_settings')
         .insert(dataToSave)
         .select();
     }
 
-    if (result.error) {
-      throw result.error;
-    }
+    if (result.error) throw result.error;
 
-    console.log('✅ Paramètres sauvegardés avec succès dans Supabase');
+    console.log('✅ Paramètres sauvegardés');
     return { success: true };
     
   } catch (err) {
     const error = handleError(err);
-    console.error('❌ Erreur lors de la sauvegarde:', error);
+    console.error('❌ Erreur sauvegarde:', error);
     return { 
       success: false, 
       error: createError(ErrorCodes.SAVE_FAILED, { 
@@ -229,12 +190,7 @@ export async function saveProforma(
   proforma: Proforma
 ): Promise<OperationResult> {
   try {
-    console.log('💾 Tentative de sauvegarde du proforma...', {
-      userId,
-      proformaId: proforma.id,
-      number: proforma.number,
-      clientName: proforma.client.name
-    });
+    console.log('💾 Sauvegarde proforma...', proforma.number);
 
     const dataToInsert = {
       id: proforma.id,
@@ -249,8 +205,6 @@ export async function saveProforma(
       total: proforma.total
     };
 
-    console.log('📦 Données à insérer:', dataToInsert);
-
     // Vérifier si le proforma existe déjà
     const { data: existing } = await supabase
       .from('proformas')
@@ -261,7 +215,6 @@ export async function saveProforma(
     let result;
     if (existing) {
       // Mise à jour
-      console.log('🔄 Mise à jour du proforma existant');
       result = await supabase
         .from('proformas')
         .update({
@@ -272,23 +225,20 @@ export async function saveProforma(
         .select();
     } else {
       // Insertion
-      console.log('➕ Insertion d\'un nouveau proforma');
       result = await supabase
         .from('proformas')
         .insert(dataToInsert)
         .select();
     }
 
-    if (result.error) {
-      throw result.error;
-    }
+    if (result.error) throw result.error;
 
-    console.log('✅ Proforma sauvegardé avec succès:', result.data);
+    console.log('✅ Proforma sauvegardé');
     return { success: true, data: result.data };
     
   } catch (err) {
     const error = handleError(err);
-    console.error('❌ Erreur lors de la sauvegarde du proforma:', error);
+    console.error('❌ Erreur sauvegarde proforma:', error);
     return { 
       success: false, 
       error: createError(ErrorCodes.SAVE_FAILED, { 
