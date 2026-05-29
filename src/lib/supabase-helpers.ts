@@ -16,7 +16,8 @@ export interface OperationResult<T = void> {
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
   try {
-    // Essayer de charger depuis Supabase
+    console.log('📥 Chargement des paramètres depuis Supabase...', { userId });
+    
     const { data, error } = await supabase
       .from('company_settings')
       .select('*')
@@ -24,61 +25,48 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       .single();
 
     if (error) {
-      console.warn('⚠️ Erreur Supabase, chargement depuis localStorage:', error.message);
-      // Fallback: charger depuis localStorage
-      const localData = localStorage.getItem(`company_settings_${userId}`);
-      if (localData) {
-        console.log('✅ Paramètres chargés depuis localStorage');
-        return JSON.parse(localData);
+      // Si l'erreur est "pas de données trouvées", c'est normal pour un nouvel utilisateur
+      if (error.code === 'PGRST116') {
+        console.log('ℹ️ Aucun paramètre trouvé (nouvel utilisateur)');
+        return null;
       }
-      return null;
+      console.error('❌ Erreur Supabase:', error);
+      throw error;
     }
 
     if (!data) {
-      // Pas de données dans Supabase, essayer localStorage
-      const localData = localStorage.getItem(`company_settings_${userId}`);
-      if (localData) {
-        console.log('✅ Paramètres chargés depuis localStorage');
-        return JSON.parse(localData);
-      }
+      console.log('ℹ️ Aucun paramètre trouvé');
       return null;
     }
 
     // Convertir les données Supabase vers le format CompanyInfo
-    const settings = {
+    const settings: CompanyInfo = {
       name: data.name,
       address: data.address,
       email: data.email,
       phone: data.phone,
-      logo: data.logo,
-      logoWidth: data.logo_width,
-      logoHeight: data.logo_height,
-      signature: data.signature,
-      signatureWidth: data.signature_width,
-      signatureHeight: data.signature_height,
-      stamp: data.stamp,
-      stampWidth: data.stamp_width,
-      stampHeight: data.stamp_height,
-      watermark: data.watermark,
-      services: data.services,
-      siret: data.siret,
-      siren: data.siren,
-      rcs: data.rcs
+      logo: data.logo || undefined,
+      logoWidth: data.logo_width || undefined,
+      logoHeight: data.logo_height || undefined,
+      signature: data.signature || undefined,
+      signatureWidth: data.signature_width || undefined,
+      signatureHeight: data.signature_height || undefined,
+      stamp: data.stamp || undefined,
+      stampWidth: data.stamp_width || undefined,
+      stampHeight: data.stamp_height || undefined,
+      watermark: data.watermark || undefined,
+      services: data.services || undefined,
+      siret: data.siret || undefined,
+      siren: data.siren || undefined,
+      rcs: data.rcs || undefined
     };
     
-    // Sauvegarder aussi dans localStorage comme backup
-    localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
     console.log('✅ Paramètres chargés depuis Supabase');
     return settings;
   } catch (err) {
-    console.error('❌ Erreur inattendue:', err);
-    // Fallback final: localStorage
-    const localData = localStorage.getItem(`company_settings_${userId}`);
-    if (localData) {
-      console.log('✅ Paramètres chargés depuis localStorage (fallback)');
-      return JSON.parse(localData);
-    }
-    return null;
+    const error = handleError(err);
+    console.error('❌ Erreur lors du chargement des paramètres:', error);
+    throw error;
   }
 }
 
@@ -87,7 +75,7 @@ export async function saveCompanySettings(
   settings: CompanyInfo
 ): Promise<OperationResult> {
   try {
-    console.log('💾 Sauvegarde des paramètres d\'entreprise...', { userId, name: settings.name });
+    console.log('💾 Sauvegarde des paramètres dans Supabase...', { userId, name: settings.name });
     
     const dataToSave = {
       user_id: userId,
@@ -112,11 +100,15 @@ export async function saveCompanySettings(
     };
 
     // Vérifier si les paramètres existent déjà
-    const { data: existing } = await supabase
+    const { data: existing, error: selectError } = await supabase
       .from('company_settings')
       .select('id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
+
+    if (selectError) {
+      throw selectError;
+    }
 
     let result;
     if (existing) {
@@ -144,36 +136,18 @@ export async function saveCompanySettings(
     }
 
     console.log('✅ Paramètres sauvegardés avec succès dans Supabase');
-    // Sauvegarder aussi dans localStorage comme backup
-    localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
     return { success: true };
     
   } catch (err) {
     const error = handleError(err);
     console.error('❌ Erreur lors de la sauvegarde:', error);
-    
-    // Fallback: sauvegarder dans localStorage
-    try {
-      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
-      console.log('⚠️ Sauvegardé dans localStorage uniquement');
-      return { 
-        success: true, 
-        error: new AppError(
-          'Saved to localStorage only',
-          'PARTIAL_SAVE',
-          'Paramètres sauvegardés localement uniquement (pas de connexion cloud)',
-          { originalError: error }
-        )
-      };
-    } catch (localErr) {
-      return { 
-        success: false, 
-        error: createError(ErrorCodes.SAVE_FAILED, { 
-          supabaseError: error, 
-          localStorageError: localErr 
-        })
-      };
-    }
+    return { 
+      success: false, 
+      error: createError(ErrorCodes.SAVE_FAILED, { 
+        userId,
+        originalError: error 
+      })
+    };
   }
 }
 

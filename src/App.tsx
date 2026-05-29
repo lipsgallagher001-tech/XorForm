@@ -214,19 +214,6 @@ export default function App() {
     console.log('État d\'authentification changé:', isAuthenticated);
   }, [isAuthenticated]);
 
-  // Sauvegarder les paramètres d'entreprise dans Supabase avec debounce
-  useEffect(() => {
-    if (!currentUserId || !isAuthenticated) return;
-    
-    // Debounce de 1 seconde pour éviter trop de sauvegardes
-    const timeoutId = setTimeout(() => {
-      console.log('🔄 Déclenchement de la sauvegarde des paramètres...');
-      saveCompanySettings(currentUserId, companyInfo);
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [companyInfo, currentUserId, isAuthenticated]);
-
   const handleLogin = async (email: string, password: string) => {
     // La connexion est déjà gérée dans Login.tsx
     // On met juste à jour l'état local
@@ -273,7 +260,7 @@ export default function App() {
     }
 
     setIsSavingSettings(true);
-    console.log('💾 Sauvegarde explicite des paramètres avant fermeture...');
+    console.log('💾 Sauvegarde des paramètres dans Supabase...');
     console.log('📋 Données à sauvegarder:', companyInfo);
     console.log('👤 User ID:', currentUserId);
     
@@ -281,13 +268,8 @@ export default function App() {
     setIsSavingSettings(false);
     
     if (result.success) {
-      console.log('✅ Sauvegarde réussie !');
+      console.log('✅ Sauvegarde réussie dans Supabase !');
       setSettingsSaved(true);
-      
-      // Afficher un avertissement si sauvegarde locale uniquement
-      if (result.error) {
-        console.warn('⚠️', result.error.userMessage);
-      }
       
       // Fermer immédiatement après avoir affiché le message de succès
       window.setTimeout(() => {
@@ -297,20 +279,6 @@ export default function App() {
     } else {
       console.error('❌ Échec de la sauvegarde');
       alert(result.error?.userMessage || 'Erreur lors de la sauvegarde des paramètres.');
-    }
-  };
-
-  const handleReloadSettings = async () => {
-    if (currentUserId) {
-      console.log('🔄 Rechargement manuel des paramètres...');
-      const settings = await loadCompanySettings(currentUserId);
-      console.log('📦 Paramètres rechargés:', settings);
-      if (settings) {
-        setCompanyInfo(settings);
-        alert('Paramètres rechargés depuis Supabase');
-      } else {
-        alert('Aucun paramètre trouvé dans Supabase');
-      }
     }
   };
 
@@ -799,7 +767,7 @@ export default function App() {
                 {viewingHistoryId ? 'Mettre à jour' : 'Sauvegarder'}
               </button>
             </div>
-            <p className="text-[10px] text-app-navy/40 mt-3 text-center italic">Auto-sauvegarde activée</p>
+            <p className="text-[10px] text-app-navy/40 mt-3 text-center italic">Sauvegarde cloud sécurisée</p>
           </div>
         </section>
 
@@ -1133,15 +1101,7 @@ export default function App() {
               className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl relative z-10 flex flex-col"
             >
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
-                <div>
-                  <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
-                  <button 
-                    onClick={handleReloadSettings}
-                    className="text-xs text-blue-600 hover:underline mt-1"
-                  >
-                    🔄 Recharger depuis Supabase (debug)
-                  </button>
-                </div>
+                <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
                 <button 
                   onClick={handleSaveAndCloseSettings} 
                   disabled={isSavingSettings}
