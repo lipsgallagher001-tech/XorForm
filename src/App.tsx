@@ -1105,9 +1105,10 @@ export default function App() {
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
                 <button 
-                  onClick={handleSaveAndCloseSettings} 
+                  onClick={() => setShowSettings(false)} 
                   disabled={isSavingSettings}
                   className="text-slate-400 hover:text-slate-900 transition-colors disabled:opacity-50"
+                  title="Fermer sans sauvegarder"
                 >
                   <X size={20} />
                 </button>
@@ -1410,25 +1411,34 @@ export default function App() {
                 </div>
               </div>
               <div className="p-6 md:p-8 border-t border-slate-100 shrink-0">
-                <button 
-                  onClick={handleSaveAndCloseSettings}
-                  disabled={isSavingSettings || settingsSaved}
-                  className="w-full py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isSavingSettings ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Sauvegarde en cours...</span>
-                    </>
-                  ) : settingsSaved ? (
-                    <>
-                      <CheckCircle2 size={18} />
-                      <span>✓ Enregistré avec succès !</span>
-                    </>
-                  ) : (
-                    'Enregistrer les modifications'
-                  )}
-                </button>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowSettings(false)}
+                    disabled={isSavingSettings}
+                    className="px-6 py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition-all active:scale-[0.98] uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Annuler
+                  </button>
+                  <button 
+                    onClick={handleSaveAndCloseSettings}
+                    disabled={isSavingSettings || settingsSaved}
+                    className="flex-1 py-4 bg-app-navy text-white rounded-2xl font-bold shadow-lg shadow-app-navy/10 hover:brightness-110 transition-all active:scale-[0.98] uppercase tracking-widest text-xs disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSavingSettings ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>Sauvegarde en cours...</span>
+                      </>
+                    ) : settingsSaved ? (
+                      <>
+                        <CheckCircle2 size={18} />
+                        <span>✓ Enregistré avec succès !</span>
+                      </>
+                    ) : (
+                      'Enregistrer les modifications'
+                    )}
+                  </button>
+                </div>
               </div>
             </motion.div>
           </div>
