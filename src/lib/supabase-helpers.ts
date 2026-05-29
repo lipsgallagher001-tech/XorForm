@@ -9,6 +9,7 @@ import { Proforma, CompanyInfo } from '../types';
 
 export async function loadCompanySettings(userId: string): Promise<CompanyInfo | null> {
   try {
+    // Essayer de charger depuis Supabase
     const { data, error } = await supabase
       .from('company_settings')
       .select('*')
@@ -16,14 +17,28 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       .single();
 
     if (error) {
-      console.error('Erreur lors du chargement des paramètres:', error);
+      console.warn('⚠️ Erreur Supabase, chargement depuis localStorage:', error.message);
+      // Fallback: charger depuis localStorage
+      const localData = localStorage.getItem(`company_settings_${userId}`);
+      if (localData) {
+        console.log('✅ Paramètres chargés depuis localStorage');
+        return JSON.parse(localData);
+      }
       return null;
     }
 
-    if (!data) return null;
+    if (!data) {
+      // Pas de données dans Supabase, essayer localStorage
+      const localData = localStorage.getItem(`company_settings_${userId}`);
+      if (localData) {
+        console.log('✅ Paramètres chargés depuis localStorage');
+        return JSON.parse(localData);
+      }
+      return null;
+    }
 
     // Convertir les données Supabase vers le format CompanyInfo
-    return {
+    const settings = {
       name: data.name,
       address: data.address,
       email: data.email,
@@ -43,8 +58,19 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       siren: data.siren,
       rcs: data.rcs
     };
+    
+    // Sauvegarder aussi dans localStorage comme backup
+    localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
+    console.log('✅ Paramètres chargés depuis Supabase');
+    return settings;
   } catch (err) {
-    console.error('Erreur inattendue:', err);
+    console.error('❌ Erreur inattendue:', err);
+    // Fallback final: localStorage
+    const localData = localStorage.getItem(`company_settings_${userId}`);
+    if (localData) {
+      console.log('✅ Paramètres chargés depuis localStorage (fallback)');
+      return JSON.parse(localData);
+    }
     return null;
   }
 }
@@ -53,63 +79,73 @@ export async function saveCompanySettings(userId: string, settings: CompanyInfo)
   try {
     console.log('💾 Sauvegarde des paramètres d\'entreprise...', { userId, name: settings.name });
     
-    const dataToSave = {
-      user_id: userId,
-      name: settings.name,
-      address: settings.address,
-      email: settings.email,
-      phone: settings.phone,
-      logo: settings.logo || null,
-      logo_width: settings.logoWidth || 15,
-      logo_height: settings.logoHeight || 15,
-      signature: settings.signature || null,
-      signature_width: settings.signatureWidth || 35,
-      signature_height: settings.signatureHeight || 25,
-      stamp: settings.stamp || null,
-      stamp_width: settings.stampWidth || 35,
-      stamp_height: settings.stampHeight || 25,
-      watermark: settings.watermark || null,
-      services: settings.services || null,
-      siret: settings.siret || null,
-      siren: settings.siren || null,
-      rcs: settings.rcs || null
-    };
+    // FALLBACK: Sauvegarder dans localStorage si Supabase échoue
+    try {
+      const dataToSave = {
+        user_id: userId,
+        name: settings.name,
+        address: settings.address,
+        email: settings.email,
+        phone: settings.phone,
+        logo: settings.logo || null,
+        logo_width: settings.logoWidth || 15,
+        logo_height: settings.logoHeight || 15,
+        signature: settings.signature || null,
+        signature_width: settings.signatureWidth || 35,
+        signature_height: settings.signatureHeight || 25,
+        stamp: settings.stamp || null,
+        stamp_width: settings.stampWidth || 35,
+        stamp_height: settings.stampHeight || 25,
+        watermark: settings.watermark || null,
+        services: settings.services || null,
+        siret: settings.siret || null,
+        siren: settings.siren || null,
+        rcs: settings.rcs || null
+      };
 
-    // Vérifier si les paramètres existent déjà
-    const { data: existing } = await supabase
-      .from('company_settings')
-      .select('id')
-      .eq('user_id', userId)
-      .single();
-
-    let result;
-    if (existing) {
-      // Mise à jour
-      console.log('🔄 Mise à jour des paramètres existants');
-      result = await supabase
+      // Vérifier si les paramètres existent déjà
+      const { data: existing } = await supabase
         .from('company_settings')
-        .update({
-          ...dataToSave,
-          updated_at: new Date().toISOString()
-        })
+        .select('id')
         .eq('user_id', userId)
-        .select();
-    } else {
-      // Insertion
-      console.log('➕ Insertion de nouveaux paramètres');
-      result = await supabase
-        .from('company_settings')
-        .insert(dataToSave)
-        .select();
-    }
+        .single();
 
-    if (result.error) {
-      console.error('❌ Erreur lors de la sauvegarde des paramètres:', result.error);
-      return false;
-    }
+      let result;
+      if (existing) {
+        // Mise à jour
+        console.log('🔄 Mise à jour des paramètres existants');
+        result = await supabase
+          .from('company_settings')
+          .update({
+            ...dataToSave,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .select();
+      } else {
+        // Insertion
+        console.log('➕ Insertion de nouveaux paramètres');
+        result = await supabase
+          .from('company_settings')
+          .insert(dataToSave)
+          .select();
+      }
 
-    console.log('✅ Paramètres sauvegardés avec succès');
-    return true;
+      if (result.error) {
+        throw result.error;
+      }
+
+      console.log('✅ Paramètres sauvegardés avec succès dans Supabase');
+      // Sauvegarder aussi dans localStorage comme backup
+      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
+      return true;
+    } catch (supabaseError) {
+      console.warn('⚠️ Supabase non disponible, sauvegarde dans localStorage', supabaseError);
+      // Fallback: sauvegarder dans localStorage
+      localStorage.setItem(`company_settings_${userId}`, JSON.stringify(settings));
+      console.log('✅ Paramètres sauvegardés dans localStorage (local)');
+      return true;
+    }
   } catch (err) {
     console.error('❌ Erreur inattendue:', err);
     return false;
