@@ -281,16 +281,21 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // Signature and Stamp
   if (company.signature || company.stamp) {
-    currentY += 6; // Réduit de 12 à 6 pour moins d'espace en haut
+    currentY += 18; // Augmenté de 6 à 18 pour décaler le cachet et la signature du rectangle jaune
     const stampWidth = company.stampWidth || 35;
     const stampHeight = company.stampHeight || 25;
     const signatureWidth = company.signatureWidth || 35;
     const signatureHeight = company.signatureHeight || 25;
     
+    // Calculer la hauteur maximale pour centrer verticalement
+    const maxHeight = Math.max(stampHeight, signatureHeight);
+    
     if (company.stamp) {
       try {
         const optimizedStamp = await optimizeImage(company.stamp, 400);
-        doc.addImage(optimizedStamp.data, optimizedStamp.format, pageWidth - MARGIN - stampWidth - signatureWidth - 10, currentY, stampWidth, stampHeight, undefined, 'FAST');
+        // Centrer verticalement le cachet
+        const stampY = currentY + (maxHeight - stampHeight) / 2;
+        doc.addImage(optimizedStamp.data, optimizedStamp.format, pageWidth - MARGIN - stampWidth - signatureWidth - 10, stampY, stampWidth, stampHeight, undefined, 'FAST');
       } catch (e) {
         console.error('Error adding stamp to PDF:', e);
       }
@@ -299,14 +304,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     if (company.signature) {
       try {
         const optimizedSignature = await optimizeImage(company.signature, 400);
-        doc.addImage(optimizedSignature.data, optimizedSignature.format, pageWidth - MARGIN - signatureWidth, currentY, signatureWidth, signatureHeight, undefined, 'FAST');
+        // Centrer verticalement la signature
+        const signatureY = currentY + (maxHeight - signatureHeight) / 2;
+        doc.addImage(optimizedSignature.data, optimizedSignature.format, pageWidth - MARGIN - signatureWidth, signatureY, signatureWidth, signatureHeight, undefined, 'FAST');
       } catch (e) {
         console.error('Error adding signature to PDF:', e);
       }
     }
     
-    // Utiliser la plus grande hauteur pour l'espacement
-    const maxHeight = Math.max(stampHeight, signatureHeight);
     currentY += maxHeight;
   }
 
