@@ -1,0 +1,26 @@
+# Documentation
+*.md
+!README.md
+
+# SQL scripts
+*.sql
+
+# Development files
+.env.local
+.env.development
+
+# IDE
+.vscode
+.idea
+
+# Logs
+*.log
+npm-debug.log*
+
+# Tests
+**/*.test.ts
+**/*.test.tsx
+**/__tests__
+
+# Scripts
+generate-favicons.js
