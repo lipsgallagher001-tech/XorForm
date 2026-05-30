@@ -83,10 +83,14 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
       rcs: data.rcs || undefined
     };
     
-    // ⚡ OPTIMISATION: Mettre en cache
-    setCache(cacheKey, settings);
+    // ⚡ VALIDATION: Ne mettre en cache QUE si les données sont valides
+    if (settings.name && settings.email) {
+      setCache(cacheKey, settings);
+      console.log('✅ Paramètres chargés et mis en cache:', settings.name);
+    } else {
+      console.warn('⚠️ Paramètres incomplets, pas de mise en cache');
+    }
     
-    console.log('✅ Paramètres chargés:', settings.name);
     perfMonitor.end('loadCompanySettings');
     return settings;
   } catch (err) {

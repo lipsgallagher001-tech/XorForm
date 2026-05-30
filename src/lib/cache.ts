@@ -30,7 +30,7 @@ export function setCache<T>(key: string, data: T): void {
 
 /**
  * Récupérer des données du cache
- * Retourne null si le cache est expiré ou invalide
+ * Retourne null si le cache est expiré, invalide ou vide
  */
 export function getCache<T>(key: string): T | null {
   try {
@@ -41,6 +41,7 @@ export function getCache<T>(key: string): T | null {
 
     // Vérifier la version
     if (entry.version !== CACHE_VERSION) {
+      console.log(`🗑️ Cache invalidé (version): ${key}`);
       localStorage.removeItem(`cache_${key}`);
       return null;
     }
@@ -48,13 +49,38 @@ export function getCache<T>(key: string): T | null {
     // Vérifier l'expiration
     const age = Date.now() - entry.timestamp;
     if (age > CACHE_DURATION) {
+      console.log(`🗑️ Cache expiré (${Math.round(age / 1000)}s): ${key}`);
       localStorage.removeItem(`cache_${key}`);
       return null;
+    }
+
+    // ⚡ VALIDATION: Vérifier que les données ne sont pas vides
+    if (!entry.data) {
+      console.log(`🗑️ Cache vide (null): ${key}`);
+      localStorage.removeItem(`cache_${key}`);
+      return null;
+    }
+
+    // Pour les objets, vérifier qu'ils ont des propriétés
+    if (typeof entry.data === 'object' && !Array.isArray(entry.data)) {
+      const hasData = Object.keys(entry.data).length > 0;
+      if (!hasData) {
+        console.log(`🗑️ Cache vide (objet vide): ${key}`);
+        localStorage.removeItem(`cache_${key}`);
+        return null;
+      }
+    }
+
+    // Pour les tableaux, vérifier qu'ils ne sont pas vides (sauf si c'est normal)
+    if (Array.isArray(entry.data) && key.includes('proformas')) {
+      // Les proformas peuvent être un tableau vide (normal pour un nouvel utilisateur)
+      // On accepte donc les tableaux vides pour les proformas
     }
 
     return entry.data;
   } catch (error) {
     console.warn('Erreur cache (getCache):', error);
+    localStorage.removeItem(`cache_${key}`);
     return null;
   }
 }
@@ -81,8 +107,63 @@ export function clearCache(): void {
         localStorage.removeItem(key);
       }
     });
+    console.log('🗑️ Cache vidé complètement');
   } catch (error) {
     console.warn('Erreur cache (clearCache):', error);
+  }
+}
+
+/**
+ * Nettoyer le cache corrompu ou invalide
+ * À appeler au démarrage de l'application
+ */
+export function cleanupCache(): void {
+  try {
+    const keys = Object.keys(localStorage);
+    let cleaned = 0;
+    
+    keys.forEach(key => {
+      if (key.startsWith('cache_')) {
+        try {
+          const cached = localStorage.getItem(key);
+          if (!cached) return;
+          
+          const entry = JSON.parse(cached);
+          
+          // Vérifier la version
+          if (entry.version !== CACHE_VERSION) {
+            localStorage.removeItem(key);
+            cleaned++;
+            return;
+          }
+          
+          // Vérifier l'expiration
+          const age = Date.now() - entry.timestamp;
+          if (age > CACHE_DURATION) {
+            localStorage.removeItem(key);
+            cleaned++;
+            return;
+          }
+          
+          // Vérifier que les données ne sont pas vides
+          if (!entry.data || (typeof entry.data === 'object' && !Array.isArray(entry.data) && Object.keys(entry.data).length === 0)) {
+            localStorage.removeItem(key);
+            cleaned++;
+            return;
+          }
+        } catch (error) {
+          // Cache corrompu, le supprimer
+          localStorage.removeItem(key);
+          cleaned++;
+        }
+      }
+    });
+    
+    if (cleaned > 0) {
+      console.log(`🧹 ${cleaned} entrée(s) de cache nettoyée(s)`);
+    }
+  } catch (error) {
+    console.warn('Erreur cache (cleanupCache):', error);
   }
 }
 
