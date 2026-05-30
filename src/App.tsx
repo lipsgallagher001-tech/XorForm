@@ -53,18 +53,6 @@ export default function App() {
 
   const [showRegister, setShowRegister] = useState(false);
 
-  // ⚡ OPTIMISATION: Timeout réduit à 2 secondes pour affichage plus rapide
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isCheckingAuth) {
-        console.warn('Timeout de chargement - affichage de la page');
-        setIsCheckingAuth(false);
-      }
-    }, 2000); // Réduit de 5s à 2s
-
-    return () => clearTimeout(timeout);
-  }, [isCheckingAuth]);
-
   // Vérifier la session Supabase au démarrage
   useEffect(() => {
     const checkSession = async () => {
@@ -79,7 +67,7 @@ export default function App() {
           setCurrentUserId(session.user.id);
           
           // ⚡ OPTIMISATION: Charger les données en arrière-plan (non bloquant)
-          console.log('📥 Chargement initial en arrière-plan...', { userId: session.user.id });
+          console.log('📥 Démarrage du chargement des données utilisateur via changement d\'état auth...', { userId: session.user.id });
           setIsLoadingData(true);
           
           // Charger en parallèle sans bloquer l'interface
