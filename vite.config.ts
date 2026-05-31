@@ -28,20 +28,49 @@ export default defineConfig(({mode}) => {
         compress: {
           drop_console: true, // Supprimer les console.log en production
           drop_debugger: true,
+          passes: 2, // Deux passes de compression pour meilleur résultat
+        },
+        mangle: {
+          safari10: true, // Compatibilité Safari
         },
       },
       rollupOptions: {
         output: {
           // Separer les gros modules en chunks separes
-          manualChunks: {
-            // React et React DOM dans un chunk separe
-            'react-vendor': ['react', 'react-dom'],
+          manualChunks: (id) => {
+            // React et React DOM dans un chunk separe (doit être avant vendor)
+            if (id.includes('node_modules/react-dom')) {
+              return 'react-vendor';
+            }
+            if (id.includes('node_modules/react')) {
+              return 'react-vendor';
+            }
             // jsPDF et ses dependances dans un chunk separe
-            'pdf-vendor': ['jspdf', 'jspdf-autotable'],
+            if (id.includes('node_modules/jspdf')) {
+              return 'pdf-vendor';
+            }
             // Supabase dans un chunk separe
-            'supabase-vendor': ['@supabase/supabase-js'],
+            if (id.includes('node_modules/@supabase')) {
+              return 'supabase-vendor';
+            }
+            // Google Generative AI dans un chunk separe
+            if (id.includes('node_modules/@google/genai')) {
+              return 'genai-vendor';
+            }
+            // Lucide icons dans un chunk separe
+            if (id.includes('node_modules/lucide-react')) {
+              return 'icons-vendor';
+            }
             // Autres librairies
-            'utils-vendor': ['date-fns', 'zod', 'motion'],
+            if (id.includes('node_modules/date-fns')) {
+              return 'utils-vendor';
+            }
+            if (id.includes('node_modules/zod')) {
+              return 'utils-vendor';
+            }
+            if (id.includes('node_modules/motion')) {
+              return 'utils-vendor';
+            }
           },
           // Noms de fichiers avec hash pour le cache
           chunkFileNames: 'assets/[name]-[hash].js',
@@ -49,10 +78,12 @@ export default defineConfig(({mode}) => {
           assetFileNames: 'assets/[name]-[hash].[ext]',
         },
       },
-      // Augmenter la limite de warning a 1000 KB (au lieu de 500 KB par defaut)
-      chunkSizeWarningLimit: 1000,
+      // Augmenter la limite de warning a 1500 KB pour éviter les warnings Vercel
+      chunkSizeWarningLimit: 1500,
       // Optimiser les assets
       assetsInlineLimit: 4096, // Inline les assets < 4KB en base64
+      // Optimiser le sourcemap pour production
+      sourcemap: false, // Désactiver les sourcemaps en production pour réduire la taille
     },
   };
 });
