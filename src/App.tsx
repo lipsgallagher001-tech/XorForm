@@ -56,6 +56,29 @@ export default function App() {
 
   // Vérifier la session Supabase au démarrage
   useEffect(() => {
+    // ⚡ Charger les données utilisateur en arrière-plan (NON bloquant)
+    // L'interface reste affichée pendant le chargement.
+    const loadUserDataInBackground = (userId: string) => {
+      console.log('📥 Chargement automatique des données en arrière-plan...');
+      setIsLoadingData(true);
+
+      Promise.all([
+        loadCompanySettings(userId),
+        loadProformas(userId, 20),
+      ])
+        .then(([settings, proformas]) => {
+          if (settings) setCompanyInfo(settings);
+          setHistory(proformas);
+          console.log('✅ Données chargées:', { hasSettings: !!settings, proformas: proformas.length });
+        })
+        .catch((loadError) => {
+          console.error('❌ Erreur chargement données:', loadError);
+        })
+        .finally(() => {
+          setIsLoadingData(false);
+        });
+    };
+
     const checkSession = async () => {
       try {
         // ⚡ PROTECTION: Timeout de 5s pour éviter un blocage si le token est invalide
@@ -72,12 +95,13 @@ export default function App() {
         const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
         setIsAuthenticated(!!session);
 
-        // ⚡ OPTIMISATION RADICALE: Afficher l'interface IMMÉDIATEMENT sans charger les données
+        // ⚡ Afficher l'interface IMMÉDIATEMENT (non bloquant)
         setIsCheckingAuth(false);
 
         if (session?.user) {
           setCurrentUserId(session.user.id);
-          console.log('✅ Session active, interface prête (données non chargées)');
+          // ⚡ Puis charger les données automatiquement en arrière-plan
+          loadUserDataInBackground(session.user.id);
         }
       } catch (error) {
         console.error('Erreur session:', error);
@@ -106,7 +130,10 @@ export default function App() {
 
       if (session?.user) {
         setCurrentUserId(session.user.id);
-        console.log('✅ Utilisateur connecté, prêt à charger à la demande');
+        // ⚡ Charger les données automatiquement après connexion (en arrière-plan)
+        if (event === 'SIGNED_IN') {
+          loadUserDataInBackground(session.user.id);
+        }
       } else {
         setCurrentUserId(null);
         setCompanyInfo(DEFAULT_COMPANY);
