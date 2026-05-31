@@ -60,33 +60,17 @@ export default function App() {
         const { data: { session } } = await supabase.auth.getSession();
         setIsAuthenticated(!!session);
         
-        // ⚡ OPTIMISATION: Afficher l'interface immédiatement
+        // ⚡ OPTIMISATION RADICALE: Afficher l'interface IMMÉDIATEMENT sans charger les données
         setIsCheckingAuth(false);
         
         if (session?.user) {
           setCurrentUserId(session.user.id);
           
-          // ⚡ OPTIMISATION: Charger les données en arrière-plan (non bloquant)
-          console.log('📥 Démarrage du chargement des données utilisateur via changement d\'état auth...', { userId: session.user.id });
-          setIsLoadingData(true);
-          
-          // Charger en parallèle sans bloquer l'interface
-          Promise.all([
-            loadCompanySettings(session.user.id),
-            loadProformas(session.user.id)
-          ]).then(([settings, proformas]) => {
-            console.log('✅ Données chargées:', { hasSettings: !!settings, proformas: proformas.length });
-            
-            if (settings) {
-              setCompanyInfo(settings);
-            }
-            
-            setHistory(proformas);
-            setIsLoadingData(false);
-          }).catch(loadError => {
-            console.error('❌ Erreur chargement:', loadError);
-            setIsLoadingData(false);
-          });
+          // ⚡ NE PAS CHARGER LES DONNÉES ICI
+          // Les données seront chargées à la demande :
+          // - Paramètres : quand l'utilisateur ouvre les paramètres
+          // - Proformas : quand l'utilisateur ouvre l'historique
+          console.log('✅ Session active, interface prête (données non chargées)');
         }
       } catch (error) {
         console.error('Erreur session:', error);
@@ -105,24 +89,9 @@ export default function App() {
       if (session?.user) {
         setCurrentUserId(session.user.id);
         
-        // ⚡ OPTIMISATION: Charger uniquement lors de SIGNED_IN, pas lors des rafraîchissements
-        if (event === 'SIGNED_IN') {
-          console.log('📥 Rechargement après connexion en arrière-plan...');
-          setIsLoadingData(true);
-          
-          // Charger en arrière-plan sans bloquer
-          Promise.all([
-            loadCompanySettings(session.user.id),
-            loadProformas(session.user.id)
-          ]).then(([settings, proformas]) => {
-            if (settings) setCompanyInfo(settings);
-            setHistory(proformas);
-            setIsLoadingData(false);
-          }).catch(loadError => {
-            console.error('❌ Erreur rechargement:', loadError);
-            setIsLoadingData(false);
-          });
-        }
+        // ⚡ OPTIMISATION RADICALE: Ne JAMAIS charger automatiquement
+        // Les données seront chargées à la demande uniquement
+        console.log('✅ Utilisateur connecté, prêt à charger à la demande');
       } else {
         setCurrentUserId(null);
         setCompanyInfo(DEFAULT_COMPANY);
@@ -504,7 +473,18 @@ export default function App() {
 
         <div className="flex items-center gap-1 md:gap-2">
           <button 
-            onClick={() => setShowHistory(true)}
+            onClick={async () => {
+              setShowHistory(true);
+              // ⚡ CHARGEMENT À LA DEMANDE: Charger l'historique uniquement quand l'utilisateur clique
+              if (currentUserId && history.length === 0) {
+                console.log('📥 Chargement historique à la demande...');
+                setIsLoadingData(true);
+                const proformas = await loadProformas(currentUserId, 20);
+                setHistory(proformas);
+                setIsLoadingData(false);
+                console.log('✅ Historique chargé:', proformas.length);
+              }
+            }}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-app-light-blue/20 rounded-md transition-colors"
           >
             <HistoryIcon size={16} />
@@ -543,7 +523,18 @@ export default function App() {
             )}
           </button>
           <button 
-            onClick={() => setShowSettings(true)}
+            onClick={async () => {
+              setShowSettings(true);
+              // ⚡ CHARGEMENT À LA DEMANDE: Charger les paramètres uniquement quand l'utilisateur clique
+              if (currentUserId && companyInfo.name === DEFAULT_COMPANY.name) {
+                console.log('📥 Chargement paramètres à la demande...');
+                const settings = await loadCompanySettings(currentUserId);
+                if (settings) {
+                  setCompanyInfo(settings);
+                  console.log('✅ Paramètres chargés:', settings.name);
+                }
+              }
+            }}
             className="p-1.5 text-slate-400 hover:text-app-navy transition-colors"
           >
             <Settings size={18} />
