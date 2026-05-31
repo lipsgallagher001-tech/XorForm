@@ -1,15 +1,11 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig, loadEnv} from 'vite';
+import {defineConfig} from 'vite';
 
-export default defineConfig(({mode}) => {
-  const env = loadEnv(mode, '.', '');
+export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss()],
-    define: {
-      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
@@ -52,10 +48,6 @@ export default defineConfig(({mode}) => {
             // Supabase dans un chunk separe
             if (id.includes('node_modules/@supabase')) {
               return 'supabase-vendor';
-            }
-            // Google Generative AI dans un chunk separe
-            if (id.includes('node_modules/@google/genai')) {
-              return 'genai-vendor';
             }
             // Lucide icons dans un chunk separe
             if (id.includes('node_modules/lucide-react')) {

@@ -29,6 +29,7 @@ import SEO from './components/SEO';
 import { supabase } from './lib/supabase';
 import { 
   loadCompanySettings, 
+  loadCompanyImages,
   saveCompanySettings, 
   loadProformas, 
   saveProforma as saveProformaToSupabase, 
@@ -57,19 +58,25 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        // ⚡ PROTECTION: Timeout de 5s pour éviter un blocage si le token est invalide
+        // Si getSession() ne répond pas en 5s (token corrompu, réseau lent),
+        // on abandonne et on affiche la page de connexion.
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise<{ data: { session: null } }>((resolve) =>
+          setTimeout(() => {
+            console.warn('⚠️ getSession() timeout (5s) - affichage page de connexion');
+            resolve({ data: { session: null } });
+          }, 5000)
+        );
+
+        const { data: { session } } = await Promise.race([sessionPromise, timeoutPromise]);
         setIsAuthenticated(!!session);
-        
+
         // ⚡ OPTIMISATION RADICALE: Afficher l'interface IMMÉDIATEMENT sans charger les données
         setIsCheckingAuth(false);
-        
+
         if (session?.user) {
           setCurrentUserId(session.user.id);
-          
-          // ⚡ NE PAS CHARGER LES DONNÉES ICI
-          // Les données seront chargées à la demande :
-          // - Paramètres : quand l'utilisateur ouvre les paramètres
-          // - Proformas : quand l'utilisateur ouvre l'historique
           console.log('✅ Session active, interface prête (données non chargées)');
         }
       } catch (error) {
@@ -84,13 +91,21 @@ export default function App() {
     // Écouter les changements d'authentification
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔐 Auth:', event);
+
+      // ⚡ GESTION TOKEN INVALIDE: Si le rafraîchissement du token échoue,
+      // nettoyer le cache d'auth corrompu et déconnecter proprement.
+      if (event === 'TOKEN_REFRESHED' && !session) {
+        console.warn('⚠️ Échec du rafraîchissement du token - nettoyage et déconnexion');
+        await supabase.auth.signOut();
+        setIsAuthenticated(false);
+        setCurrentUserId(null);
+        return;
+      }
+
       setIsAuthenticated(!!session);
-      
+
       if (session?.user) {
         setCurrentUserId(session.user.id);
-        
-        // ⚡ OPTIMISATION RADICALE: Ne JAMAIS charger automatiquement
-        // Les données seront chargées à la demande uniquement
         console.log('✅ Utilisateur connecté, prêt à charger à la demande');
       } else {
         setCurrentUserId(null);
@@ -394,10 +409,29 @@ export default function App() {
     }
   };
 
+  // ⚡ Helper: Combiner companyInfo avec les images chargées à la demande pour le PDF
+  const getCompanyInfoWithImages = async (): Promise<CompanyInfo> => {
+    if (!currentUserId) return companyInfo;
+    // Si les images sont déjà présentes, pas besoin de recharger
+    if (companyInfo.logo || companyInfo.signature || companyInfo.stamp) {
+      return companyInfo;
+    }
+    const images = await loadCompanyImages(currentUserId);
+    if (!images) return companyInfo;
+    return {
+      ...companyInfo,
+      logo: images.logo,
+      signature: images.signature,
+      stamp: images.stamp,
+    };
+  };
+
   const handleExport = async (p: Proforma) => {
     setIsGeneratingPDF(true);
     try {
-      await generatePDF(p, companyInfo);
+      // ⚡ Charger les images (logo, signature, cachet) uniquement au moment du PDF
+      const companyWithImages = await getCompanyInfoWithImages();
+      await generatePDF(p, companyWithImages);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
@@ -417,7 +451,9 @@ export default function App() {
   const handleShare = async (p: Proforma) => {
     setIsGeneratingPDF(true);
     try {
-      const blob = await getPDFBlob(p, companyInfo);
+      // ⚡ Charger les images (logo, signature, cachet) uniquement au moment du PDF
+      const companyWithImages = await getCompanyInfoWithImages();
+      const blob = await getPDFBlob(p, companyWithImages);
       const filename = `${p.type.toLowerCase()}-${p.number}.pdf`;
       const file = new File([blob], filename, { type: 'application/pdf' });
 

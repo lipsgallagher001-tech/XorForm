@@ -33,9 +33,12 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
     console.log('📥 Chargement paramètres depuis Supabase...', userId.substring(0, 8));
     perfMonitor.start('supabase_company_settings_query');
     
+    // ⚡ OPTIMISATION CRITIQUE: NE PAS charger les images base64 (logo, signature, stamp)
+    // Ces images peuvent faire plusieurs MB chacune et ralentir le chargement.
+    // Elles sont chargées séparément via loadCompanyImages() uniquement pour le PDF.
     const { data, error } = await supabase
       .from('company_settings')
-      .select('*')
+      .select('name, address, email, phone, logo_width, logo_height, signature_width, signature_height, stamp_width, stamp_height, watermark, services, siret, siren, rcs')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -62,18 +65,16 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
     }
 
     // Convertir les données Supabase vers le format CompanyInfo
+    // ⚡ Les images (logo, signature, stamp) ne sont PAS chargées ici (performance)
     const settings: CompanyInfo = {
       name: data.name,
       address: data.address,
       email: data.email,
       phone: data.phone,
-      logo: data.logo || undefined,
       logoWidth: data.logo_width || undefined,
       logoHeight: data.logo_height || undefined,
-      signature: data.signature || undefined,
       signatureWidth: data.signature_width || undefined,
       signatureHeight: data.signature_height || undefined,
-      stamp: data.stamp || undefined,
       stampWidth: data.stamp_width || undefined,
       stampHeight: data.stamp_height || undefined,
       watermark: data.watermark || undefined,
@@ -97,6 +98,54 @@ export async function loadCompanySettings(userId: string): Promise<CompanyInfo |
     const error = handleError(err);
     console.error('❌ Erreur chargement:', error.code);
     perfMonitor.end('loadCompanySettings');
+    return null;
+  }
+}
+
+/**
+ * ⚡ Charger UNIQUEMENT les images (logo, signature, stamp) d'un utilisateur.
+ * Appelé seulement lors de la génération d'un PDF, pas au chargement initial.
+ * Évite de télécharger plusieurs MB d'images base64 inutilement.
+ */
+export async function loadCompanyImages(userId: string): Promise<{
+  logo?: string;
+  signature?: string;
+  stamp?: string;
+} | null> {
+  try {
+    // Vérifier le cache d'abord
+    const cacheKey = `company_images_${userId}`;
+    const cached = getCache<{ logo?: string; signature?: string; stamp?: string }>(cacheKey);
+    if (cached) {
+      console.log('⚡ Images chargées depuis le cache');
+      return cached;
+    }
+
+    console.log('📥 Chargement images depuis Supabase...');
+    const { data, error } = await supabase
+      .from('company_settings')
+      .select('logo, signature, stamp')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error('❌ Erreur chargement images:', error);
+      return null;
+    }
+
+    const images = {
+      logo: data.logo || undefined,
+      signature: data.signature || undefined,
+      stamp: data.stamp || undefined,
+    };
+
+    // Mettre en cache 10 minutes (les images changent rarement)
+    setCache(cacheKey, images, 10 * 60 * 1000);
+    console.log('✅ Images chargées et mises en cache');
+
+    return images;
+  } catch (err) {
+    console.error('❌ Erreur chargement images:', err);
     return null;
   }
 }
@@ -160,8 +209,9 @@ export async function saveCompanySettings(
 
     if (result.error) throw result.error;
 
-    // ⚡ OPTIMISATION: Invalider le cache après sauvegarde
+    // ⚡ OPTIMISATION: Invalider le cache après sauvegarde (settings + images)
     invalidateCache(`company_settings_${userId}`);
+    invalidateCache(`company_images_${userId}`);
 
     console.log('✅ Paramètres sauvegardés');
     return { success: true };
