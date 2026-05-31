@@ -181,12 +181,12 @@ export async function saveCompanySettings(
 
 // ==================== PROFORMAS ====================
 
-export async function loadProformas(userId: string): Promise<Proforma[]> {
+export async function loadProformas(userId: string, limit: number = 20): Promise<Proforma[]> {
   perfMonitor.start('loadProformas');
   
   try {
     // ⚡ OPTIMISATION: Vérifier le cache d'abord
-    const cacheKey = `proformas_${userId}`;
+    const cacheKey = `proformas_${userId}_${limit}`;
     const cached = getCache<Proforma[]>(cacheKey);
     if (cached) {
       console.log('⚡ Proformas chargés depuis le cache:', cached.length);
@@ -196,13 +196,13 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
 
     perfMonitor.start('supabase_proformas_query');
     
-    // ⚡ OPTIMISATION: Limiter à 50 proformas les plus récents
+    // ⚡ OPTIMISATION: Charger uniquement les champs essentiels (pas les items complets)
     const { data, error } = await supabase
       .from('proformas')
-      .select('*')
+      .select('id, type, number, date, client_name, client_phone, discount_percent, total')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .limit(50);
+      .limit(limit);
 
     perfMonitor.end('supabase_proformas_query');
 
@@ -217,7 +217,7 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
       return [];
     }
 
-    // Convertir les données Supabase vers le format Proforma
+    // Convertir les données Supabase vers le format Proforma (sans items pour l'instant)
     const proformas = data.map(item => ({
       id: item.id,
       type: item.type as 'PROFORMA' | 'FACTURE',
@@ -227,13 +227,13 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
         name: item.client_name,
         phone: item.client_phone || ''
       },
-      items: typeof item.items === 'string' ? JSON.parse(item.items) : item.items,
+      items: [], // ⚡ Items chargés à la demande
       discountPercent: item.discount_percent || 0,
       total: item.total
     }));
 
-    // ⚡ OPTIMISATION: Mettre en cache
-    setCache(cacheKey, proformas);
+    // ⚡ OPTIMISATION: Mettre en cache avec TTL de 5 minutes
+    setCache(cacheKey, proformas, 5 * 60 * 1000);
 
     perfMonitor.end('loadProformas');
     return proformas;
@@ -241,6 +241,39 @@ export async function loadProformas(userId: string): Promise<Proforma[]> {
     console.error('Erreur inattendue:', err);
     perfMonitor.end('loadProformas');
     return [];
+  }
+}
+
+// ⚡ NOUVELLE FONCTION: Charger les détails d'un proforma spécifique
+export async function loadProformaDetails(proformaId: string): Promise<Proforma | null> {
+  try {
+    const { data, error } = await supabase
+      .from('proformas')
+      .select('*')
+      .eq('id', proformaId)
+      .single();
+
+    if (error || !data) {
+      console.error('Erreur chargement détails proforma:', error);
+      return null;
+    }
+
+    return {
+      id: data.id,
+      type: data.type as 'PROFORMA' | 'FACTURE',
+      number: data.number,
+      date: data.date,
+      client: {
+        name: data.client_name,
+        phone: data.client_phone || ''
+      },
+      items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items,
+      discountPercent: data.discount_percent || 0,
+      total: data.total
+    };
+  } catch (err) {
+    console.error('Erreur inattendue:', err);
+    return null;
   }
 }
 

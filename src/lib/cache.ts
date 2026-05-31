@@ -7,6 +7,7 @@ interface CacheEntry<T> {
   data: T;
   timestamp: number;
   version: string;
+  ttl?: number; // Durée de vie personnalisée
 }
 
 const CACHE_VERSION = '1.0.0';
@@ -14,13 +15,17 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Sauvegarder des données dans le cache
+ * @param key - Clé du cache
+ * @param data - Données à mettre en cache
+ * @param ttl - Durée de vie en millisecondes (optionnel, par défaut 5 minutes)
  */
-export function setCache<T>(key: string, data: T): void {
+export function setCache<T>(key: string, data: T, ttl?: number): void {
   try {
     const entry: CacheEntry<T> = {
       data,
       timestamp: Date.now(),
       version: CACHE_VERSION,
+      ttl: ttl || CACHE_DURATION,
     };
     localStorage.setItem(`cache_${key}`, JSON.stringify(entry));
   } catch (error) {
@@ -47,8 +52,9 @@ export function getCache<T>(key: string): T | null {
     }
 
     // Vérifier l'expiration
+    const cacheDuration = entry.ttl || CACHE_DURATION;
     const age = Date.now() - entry.timestamp;
-    if (age > CACHE_DURATION) {
+    if (age > cacheDuration) {
       console.log(`🗑️ Cache expiré (${Math.round(age / 1000)}s): ${key}`);
       localStorage.removeItem(`cache_${key}`);
       return null;
