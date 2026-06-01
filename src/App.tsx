@@ -588,14 +588,30 @@ export default function App() {
           <button 
             onClick={async () => {
               setShowSettings(true);
-              // ⚡ CHARGEMENT À LA DEMANDE: Charger les paramètres uniquement quand l'utilisateur clique
-              if (currentUserId && companyInfo.name === DEFAULT_COMPANY.name) {
-                console.log('📥 Chargement paramètres à la demande...');
-                const settings = await loadCompanySettings(currentUserId);
-                if (settings) {
-                  setCompanyInfo(settings);
-                  console.log('✅ Paramètres chargés:', settings.name);
-                }
+              // ⚡ Charger les paramètres + images quand l'utilisateur ouvre les réglages
+              // (les images sont nécessaires pour afficher le logo/signature/cachet déjà enregistrés)
+              if (currentUserId) {
+                console.log('📥 Chargement paramètres + images...');
+                const [settings, images] = await Promise.all([
+                  companyInfo.name === DEFAULT_COMPANY.name
+                    ? loadCompanySettings(currentUserId)
+                    : Promise.resolve(null),
+                  // Charger les images seulement si elles ne sont pas déjà présentes
+                  (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp)
+                    ? loadCompanyImages(currentUserId)
+                    : Promise.resolve(null),
+                ]);
+
+                setCompanyInfo((prev) => {
+                  const base = settings ? { ...prev, ...settings } : { ...prev };
+                  if (images) {
+                    base.logo = images.logo;
+                    base.signature = images.signature;
+                    base.stamp = images.stamp;
+                  }
+                  return base;
+                });
+                console.log('✅ Paramètres et images chargés');
               }
             }}
             className="p-1.5 text-slate-400 hover:text-app-navy transition-colors"
