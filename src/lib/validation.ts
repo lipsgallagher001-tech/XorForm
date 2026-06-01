@@ -54,6 +54,14 @@ export const ProformaSchema = z.object({
     .nonnegative("Le total doit être positif ou zéro")
 });
 
+// ⚡ Validateur d'image base64 avec limite de taille (~2 MB)
+// Une chaîne base64 de 2 MB représente environ 1.5 MB de données binaires.
+const MAX_IMAGE_BASE64_LENGTH = 2_800_000; // ~2 MB de base64
+
+const base64ImageSchema = z.string()
+  .max(MAX_IMAGE_BASE64_LENGTH, "Image trop lourde (max ~2 Mo). Réduisez sa taille.")
+  .optional();
+
 // Schéma pour les paramètres d'entreprise
 export const CompanyInfoSchema = z.object({
   name: z.string()
@@ -66,7 +74,7 @@ export const CompanyInfoSchema = z.object({
     .email("Format d'email invalide"),
   phone: z.string()
     .regex(/^[\d\s\+\-\(\)]+$/, "Format de téléphone invalide"),
-  logo: z.string().optional(),
+  logo: base64ImageSchema,
   logoWidth: z.number()
     .min(5, "Largeur minimale: 5mm")
     .max(100, "Largeur maximale: 100mm")
@@ -75,7 +83,7 @@ export const CompanyInfoSchema = z.object({
     .min(5, "Hauteur minimale: 5mm")
     .max(100, "Hauteur maximale: 100mm")
     .optional(),
-  signature: z.string().optional(),
+  signature: base64ImageSchema,
   signatureWidth: z.number()
     .min(10, "Largeur minimale: 10mm")
     .max(150, "Largeur maximale: 150mm")
@@ -84,7 +92,7 @@ export const CompanyInfoSchema = z.object({
     .min(10, "Hauteur minimale: 10mm")
     .max(150, "Hauteur maximale: 150mm")
     .optional(),
-  stamp: z.string().optional(),
+  stamp: base64ImageSchema,
   stampWidth: z.number()
     .min(10, "Largeur minimale: 10mm")
     .max(150, "Largeur maximale: 150mm")

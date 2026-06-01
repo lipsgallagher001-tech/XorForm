@@ -240,20 +240,40 @@ export default function App() {
       return;
     }
 
+    setIsSavingSettings(true);
+
+    // ⚡ PROTECTION CRITIQUE: S'assurer que les images sont chargées avant de sauvegarder.
+    // Sinon une sauvegarde partielle effacerait le logo/signature/cachet en base.
+    let infoToSave = companyInfo;
+    if (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp) {
+      console.log('🔒 Vérification des images existantes avant sauvegarde...');
+      const existingImages = await loadCompanyImages(currentUserId);
+      if (existingImages && (existingImages.logo || existingImages.signature || existingImages.stamp)) {
+        // Des images existent en base mais pas en mémoire: les préserver
+        infoToSave = {
+          ...companyInfo,
+          logo: existingImages.logo,
+          signature: existingImages.signature,
+          stamp: existingImages.stamp,
+        };
+        setCompanyInfo(infoToSave);
+        console.log('✅ Images existantes préservées');
+      }
+    }
+
     // ✅ VALIDATION
-    const validation = validateCompanyInfo(companyInfo);
+    const validation = validateCompanyInfo(infoToSave);
     if (!validation.success) {
       const errors = formatValidationErrors(validation.error.errors);
       alert(`Erreurs de validation:\n\n${errors}`);
       console.error('Validation errors:', validation.error);
+      setIsSavingSettings(false);
       return;
     }
 
-    setIsSavingSettings(true);
     console.log('💾 Sauvegarde des paramètres dans Supabase...');
-    console.log('📋 Données à sauvegarder:', companyInfo);
     console.log('👤 User ID:', currentUserId);
-    
+
     const result = await saveCompanySettings(currentUserId, validation.data);
     setIsSavingSettings(false);
     
