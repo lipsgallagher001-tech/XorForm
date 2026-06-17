@@ -183,12 +183,34 @@ export default function App() {
   const discountAmount = useMemo(() => (subtotal * discountPercent) / 100, [subtotal, discountPercent]);
   const total = useMemo(() => subtotal - discountAmount, [subtotal, discountAmount]);
 
+  // Client autocomplete
+  const [showClientSuggestions, setShowClientSuggestions] = useState(false);
+  const uniqueClients = useMemo(() => {
+    const seen = new Map<string, ClientInfo>();
+    history.forEach(p => {
+      const key = p.client.name.trim().toLowerCase();
+      if (key && !seen.has(key)) seen.set(key, p.client);
+    });
+    return Array.from(seen.values());
+  }, [history]);
+  const clientSuggestions = useMemo(() => {
+    const q = client.name.trim().toLowerCase();
+    if (!q) return uniqueClients.slice(0, 6);
+    return uniqueClients.filter(c => c.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [client.name, uniqueClients]);
+
   // Initial number generation and updates when history changes or doc type changes
   useEffect(() => {
     if (!viewingHistoryId) {
-      const count = history.length + 1;
       const prefix = docType === 'PROFORMA' ? 'PF' : 'FA';
-      setProformaNumber(`${prefix}-${new Date().getFullYear()}-${count.toString().padStart(3, '0')}`);
+      const year = new Date().getFullYear();
+      // Parse existing numbers to find the highest index for this prefix+year
+      const maxIndex = history.reduce((max, p) => {
+        const match = p.number?.match(new RegExp(`^${prefix}-${year}-(\\d+)$`));
+        if (match) return Math.max(max, parseInt(match[1], 10));
+        return max;
+      }, 0);
+      setProformaNumber(`${prefix}-${year}-${(maxIndex + 1).toString().padStart(3, '0')}`);
     }
   }, [history.length, viewingHistoryId, docType]);
 
@@ -716,13 +738,31 @@ export default function App() {
                 </div>
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Nom du Client</label>
-                  <input 
-                    type="text" 
-                    placeholder="Studio Horizon Digital"
-                    value={client.name}
-                    onChange={e => setClient({...client, name: e.target.value})}
-                    className="w-full border border-app-light-blue/50 rounded px-3 py-2 text-sm focus:border-app-navy focus:ring-1 focus:ring-app-navy/10 outline-none transition-all"
-                  />
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="Studio Horizon Digital"
+                      value={client.name}
+                      onChange={e => { setClient({...client, name: e.target.value}); setShowClientSuggestions(true); }}
+                      onFocus={() => setShowClientSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowClientSuggestions(false), 150)}
+                      className="w-full border border-app-light-blue/50 rounded px-3 py-2 text-sm focus:border-app-navy focus:ring-1 focus:ring-app-navy/10 outline-none transition-all"
+                    />
+                    {showClientSuggestions && clientSuggestions.length > 0 && (
+                      <ul className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-app-light-blue/50 rounded-lg shadow-lg overflow-hidden">
+                        {clientSuggestions.map((c, idx) => (
+                          <li
+                            key={idx}
+                            onMouseDown={() => { setClient({ name: c.name, phone: c.phone || '' }); setShowClientSuggestions(false); }}
+                            className="px-3 py-2 cursor-pointer hover:bg-app-light-blue/20 transition-colors"
+                          >
+                            <span className="block text-sm font-bold text-app-navy truncate">{c.name}</span>
+                            {c.phone && <span className="block text-[11px] text-app-navy/40 font-medium">{c.phone}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Téléphone</label>
@@ -763,7 +803,7 @@ export default function App() {
                       exit={{ opacity: 0, scale: 0.95 }}
                       className="grid grid-cols-12 gap-2 group"
                     >
-                      <div className="col-span-7">
+                      <div className="col-span-6">
                         <input 
                           type="text" 
                           placeholder="Description..."
@@ -775,19 +815,24 @@ export default function App() {
                       <div className="col-span-2">
                         <input 
                           type="number" 
+                          min="1"
                           value={item.quantity}
-                          onChange={e => updateItem(item.id, { quantity: parseInt(e.target.value) || 0 })}
+                          onChange={e => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
                           className="w-full border border-app-light-blue/50 rounded px-2 py-1.5 text-[12px] text-center focus:border-app-navy outline-none"
                         />
                       </div>
-                      <div className="col-span-2">
-                        <input 
-                          type="number" 
-                          placeholder="FCFA"
-                          value={item.unitPrice || ''}
-                          onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          className="w-full border border-app-light-blue/50 rounded px-2 py-1.5 text-[12px] text-right focus:border-app-navy outline-none font-medium"
-                        />
+                      <div className="col-span-3">
+                        <div className="flex items-center border border-app-light-blue/50 rounded overflow-hidden focus-within:border-app-navy">
+                          <input 
+                            type="number" 
+                            min="0"
+                            placeholder="0"
+                            value={item.unitPrice || ''}
+                            onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                            className="w-full px-2 py-1.5 text-[12px] text-right outline-none font-medium bg-transparent"
+                          />
+                          <span className="text-[10px] font-bold text-app-navy/40 bg-app-light-blue/20 px-1.5 py-1.5 border-l border-app-light-blue/50 shrink-0 select-none">FCFA</span>
+                        </div>
                       </div>
                       <div className="col-span-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                         <button 
@@ -846,7 +891,7 @@ export default function App() {
           {/* The "Paper" Document Container - strictly A4 ratio with better mobile scaling */}
           <div className="w-full max-w-[580px] h-auto min-h-[820px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 sm:p-12 flex flex-col relative overflow-hidden transition-transform duration-300">
             {/* Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.02] rotate-[-45deg]">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.035] rotate-[-45deg]">
               <span className="text-6xl md:text-9xl font-black uppercase font-sans tracking-[0.2em] text-app-navy">
                 {companyInfo.watermark || docType}
               </span>
@@ -920,7 +965,7 @@ export default function App() {
               <div className="space-y-1 text-left">
                 <p className="font-sans text-[9px] text-app-navy/40 font-bold uppercase tracking-widest leading-none mb-1">Destinataire:</p>
                 <div className="font-sans text-[11px] text-app-navy leading-tight">
-                  <span className="block font-black text-app-navy mb-0.5">{client.name.toUpperCase() || 'NOM DU CLIENT'}</span>
+                  <span className="block font-black text-app-navy mb-0.5">{(client.name || 'NOM DU CLIENT').toUpperCase()}</span>
                   <span className="font-bold text-app-navy/70">{client.phone || ''}</span>
                 </div>
               </div>
@@ -937,14 +982,14 @@ export default function App() {
                   <tr className="bg-app-light-blue/50 text-app-navy font-sans text-[8px] sm:text-[9px] uppercase tracking-widest">
                     <th className="py-2.5 px-4 font-black text-left border-r border-app-navy/10">Description</th>
                     <th className="py-2.5 px-2 font-black text-center w-8 sm:w-16 border-r border-app-navy/10">Qté</th>
-                    <th className="py-2.5 px-4 text-center font-black w-24 sm:w-32 border-r border-app-navy/10">Prix Unitaire</th>
-                    <th className="py-2.5 px-4 text-center font-black w-28 sm:w-32">Total</th>
+                    <th className="py-2.5 px-4 text-right font-black w-24 sm:w-32 border-r border-app-navy/10">Prix Unitaire</th>
+                    <th className="py-2.5 px-4 text-right font-black w-28 sm:w-32">Total</th>
                   </tr>
                 </thead>
                 <tbody className="text-[9px] sm:text-[10px] md:text-[11px] text-app-navy">
                   {items.map((item, i) => (
                     <tr key={i} className="border-b border-app-light-blue/20">
-                      <td className="py-2 px-4 font-bold uppercase truncate max-w-[100px] sm:max-w-none border-r border-app-light-blue/10">{item.description || 'Design Services'}</td>
+                      <td className="py-2 px-4 font-bold uppercase truncate max-w-[100px] sm:max-w-none border-r border-app-light-blue/10">{item.description || ''}</td>
                       <td className="py-2 px-2 text-center font-medium border-r border-app-light-blue/10">{item.quantity}</td>
                       <td className="py-2 px-4 text-right text-app-navy/60 font-bold border-r border-app-light-blue/10 whitespace-nowrap">{item.unitPrice.toLocaleString()} FCFA</td>
                       <td className="py-2 px-4 text-right font-black text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} FCFA</td>
@@ -990,26 +1035,29 @@ export default function App() {
               </div>
             )}
 
-            <div className="mt-auto pt-1 border-t border-app-light-blue/10 min-h-[40px] flex flex-col items-center justify-center gap-2">
-              {/* Services */}
-              {companyInfo.services ? (
-                <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1.5 px-2">
-                  {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
-                    <div key={idx} className="flex items-center gap-3">
-                      <span className="text-[9px] sm:text-[10px] text-app-navy/50 font-bold uppercase tracking-wide text-center leading-tight">
-                        {service.trim()}
-                      </span>
-                      {idx < arr.length - 1 && (
-                        <span className="text-[10px] text-app-navy/20">|</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-[9px] sm:text-[10px] text-app-navy/40 font-bold uppercase tracking-wide italic text-center px-2 leading-tight">
-                  Offre valable pendant 30 jours à compter de la date d'émission
-                </span>
-              )}
+            <div className="mt-auto pt-0">
+              {/* Footer band */}
+              <div className="border-t-2 border-app-light-blue/30 bg-app-light-blue/10 px-4 py-3 flex flex-col items-center justify-center gap-1.5 min-h-[52px]">
+                {/* Services */}
+                {companyInfo.services ? (
+                  <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
+                    {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
+                      <div key={idx} className="flex items-center gap-3">
+                        <span className="text-[8px] sm:text-[9px] text-app-navy/50 font-black uppercase tracking-widest text-center leading-tight">
+                          {service.trim()}
+                        </span>
+                        {idx < arr.length - 1 && (
+                          <span className="text-[9px] text-app-navy/20 font-light">|</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-[8px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-widest italic text-center leading-tight">
+                    Offre valable pendant 30 jours à compter de la date d'émission
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         </section>
