@@ -87,7 +87,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: [210, pageH] });
   const PW   = doc.internal.pageSize.width;   // 210
   const PH   = doc.internal.pageSize.height;
-  const M    = 15; // margin
+  const M    = 25; // margin 2,5 cm
 
   // ── 2. Header band ────────────────────────────────────────────────────────
   const headerH = 38;

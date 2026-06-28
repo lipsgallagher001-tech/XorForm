@@ -884,7 +884,7 @@ export default function App() {
           <div className="w-full max-w-[560px] h-auto bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ minHeight: '790px' }}>
 
             {/* ── HEADER ── */}
-            <div className="relative z-10 px-5 pt-4 pb-2">
+            <div className="relative z-10 px-10 pt-4 pb-2">
               <div className="flex justify-between items-start">
                 {/* Left: logo + company info */}
                 <div className="flex items-start gap-3">
@@ -925,7 +925,7 @@ export default function App() {
             </div>
 
             {/* ── TITLE ── */}
-            <div className="relative z-10 px-5 py-2 text-center">
+            <div className="relative z-10 px-10 py-2 text-center">
               <p className="font-black text-[15px] sm:text-[17px] text-app-navy tracking-tight">
                 {docType === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA'} : {proformaNumber}
               </p>
@@ -933,7 +933,7 @@ export default function App() {
             </div>
 
             {/* ── CLIENT BAND ── */}
-            <div className="relative z-10 mx-5 mb-3 bg-app-light-blue/60 px-3 py-2">
+            <div className="relative z-10 mx-10 mb-3 bg-app-light-blue/60 px-3 py-2">
               <p className="text-[8px] font-bold text-app-navy leading-none">Facture à</p>
               <p className="text-[9px] font-black text-app-navy mt-0.5">
                 Client : {(client.name || 'NOM DU CLIENT').toUpperCase()}
@@ -941,7 +941,7 @@ export default function App() {
             </div>
 
             {/* ── TABLE ── */}
-            <div className="relative z-10 px-5 flex-1">
+            <div className="relative z-10 px-10 flex-1">
               <table className="w-full border-collapse text-[8px] sm:text-[9px]">
                 <thead>
                   <tr className="bg-app-navy text-white">
@@ -975,7 +975,7 @@ export default function App() {
             </div>
 
             {/* ── TOTALS ── */}
-            <div className="relative z-10 px-5 mt-2">
+            <div className="relative z-10 px-10 mt-2">
               {/* Sous-total + Remise (right aligned text) */}
               <div className="text-right text-[8px] text-slate-500 space-y-0.5 mb-1">
                 <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
@@ -992,7 +992,7 @@ export default function App() {
             </div>
 
             {/* ── AMOUNT IN WORDS ── */}
-            <div className="relative z-10 px-5 mt-2">
+            <div className="relative z-10 px-10 mt-2">
               <p className="text-[7.5px] italic text-slate-600">
                 Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
                   (() => {
@@ -1024,7 +1024,7 @@ export default function App() {
             </div>
 
             {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 px-5 mt-2 flex justify-between items-end min-h-[60px]">
+            <div className="relative z-10 px-10 mt-2 flex justify-between items-end min-h-[60px]">
               {/* Services (left) */}
               <div className="text-[7.5px] text-app-navy max-w-[55%]">
                 {companyInfo.services && (
@@ -1054,7 +1054,7 @@ export default function App() {
             </div>
 
             {/* ── FOOTER ── */}
-            <div className="relative z-10 px-5 mt-2 pb-1 flex justify-between items-end">
+            <div className="relative z-10 px-10 mt-2 pb-1 flex justify-between items-end">
               {/* Slogan */}
               <p className="font-black italic text-[11px] sm:text-[13px] text-app-navy leading-tight max-w-[60%]">
                 {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
