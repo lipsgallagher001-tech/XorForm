@@ -4,7 +4,6 @@
  */
 
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { Eye, EyeOff, Lock, Mail, User, Building, ArrowRight, ArrowLeft } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -117,12 +116,7 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-app-light-blue/20 rounded-full blur-3xl" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
-      >
+      <div className="w-full max-w-md relative z-10 animate-fade-in-up">
         {/* Back Button */}
         <button
           onClick={onBackToLogin}
@@ -136,14 +130,9 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
         <div className="bg-white rounded-3xl shadow-2xl shadow-app-navy/10 overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-app-navy to-app-navy/90 p-8 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-            >
+            <div className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-fade-in-scale">
               <span className="text-3xl font-black text-app-navy">X</span>
-            </motion.div>
+            </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">Créer un compte</h1>
             <p className="text-app-light-blue/80 text-sm font-medium">Rejoignez XorForm dès aujourd'hui</p>
           </div>
@@ -253,13 +242,9 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
 
               {/* Error Message */}
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium"
-                >
+                <div className="animate-fade-in-down bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
                   {error}
-                </motion.div>
+                </div>
               )}
 
               {/* Terms */}
@@ -317,7 +302,7 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
         <p className="text-center text-xs text-slate-400 mt-6">
           © 2026 XorForm. Tous droits réservés.
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

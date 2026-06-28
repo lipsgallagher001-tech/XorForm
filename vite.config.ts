@@ -60,9 +60,6 @@ export default defineConfig(() => {
             if (id.includes('node_modules/zod')) {
               return 'utils-vendor';
             }
-            if (id.includes('node_modules/motion')) {
-              return 'utils-vendor';
-            }
           },
           // Noms de fichiers avec hash pour le cache
           chunkFileNames: 'assets/[name]-[hash].js',
@@ -70,8 +67,8 @@ export default defineConfig(() => {
           assetFileNames: 'assets/[name]-[hash].[ext]',
         },
       },
-      // Augmenter la limite de warning a 1500 KB pour éviter les warnings Vercel
-      chunkSizeWarningLimit: 1500,
+      // Augmenter la limite de warning a 600 KB
+      chunkSizeWarningLimit: 600,
       // Optimiser les assets
       assetsInlineLimit: 4096, // Inline les assets < 4KB en base64
       // Optimiser le sourcemap pour production

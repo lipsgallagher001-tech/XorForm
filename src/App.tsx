@@ -10,7 +10,6 @@ import {
   Download, 
   History as HistoryIcon, 
   FileText, 
-  ChevronRight, 
   Settings,
   X,
   CheckCircle2,
@@ -18,10 +17,8 @@ import {
   MessageSquare,
   Share2
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo } from './types';
-import { generatePDF, getPDFBlob } from './lib/pdf-generator';
 import Login from './Login';
 import Register from './Register';
 import SupabaseStatus from './components/SupabaseStatus';
@@ -38,7 +35,6 @@ import {
 } from './lib/supabase-helpers';
 import { validateProforma, validateCompanyInfo } from './lib/validation';
 import { formatValidationErrors } from './lib/errors';
-import { perfMonitor, runPerformanceDiagnostic } from './lib/performance';
 
 const DEFAULT_COMPANY: CompanyInfo = {
   name: "Mon Entreprise",
@@ -498,7 +494,8 @@ export default function App() {
   const handleExport = async (p: Proforma) => {
     setIsGeneratingPDF(true);
     try {
-      // ⚡ Charger les images (logo, signature, cachet) uniquement au moment du PDF
+      // ⚡ LAZY LOADING: jsPDF chargé uniquement à la demande (-417 KB au démarrage)
+      const { generatePDF } = await import('./lib/pdf-generator');
       const companyWithImages = await getCompanyInfoWithImages();
       await generatePDF(p, companyWithImages);
     } catch (error) {
@@ -520,7 +517,8 @@ export default function App() {
   const handleShare = async (p: Proforma) => {
     setIsGeneratingPDF(true);
     try {
-      // ⚡ Charger les images (logo, signature, cachet) uniquement au moment du PDF
+      // ⚡ LAZY LOADING: jsPDF chargé uniquement à la demande
+      const { generatePDF, getPDFBlob } = await import('./lib/pdf-generator');
       const companyWithImages = await getCompanyInfoWithImages();
       const blob = await getPDFBlob(p, companyWithImages);
       const filename = `${p.type.toLowerCase()}-${p.number}.pdf`;
@@ -534,7 +532,7 @@ export default function App() {
         });
       } else {
         // Fallback for browsers that don't support file sharing
-        await handleExport(p);
+        await generatePDF(p, companyWithImages);
         alert("Le partage de fichiers n'est pas supporté par votre navigateur. Le fichier a été téléchargé.");
       }
     } catch (error) {
@@ -793,15 +791,10 @@ export default function App() {
               </div>
               
               <div className="space-y-2">
-                <AnimatePresence mode="popLayout">
                   {items.map((item) => (
-                    <motion.div 
+                    <div 
                       key={item.id}
-                      layout
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      className="grid grid-cols-12 gap-2 group"
+                      className="grid grid-cols-12 gap-2 group item-row-enter"
                     >
                       <div className="col-span-6">
                         <input 
@@ -842,10 +835,9 @@ export default function App() {
                           <Trash2 size={14} />
                         </button>
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
-                </AnimatePresence>
-              </div>
+                </div>
             </div>
 
             <div className="pt-6 mt-4 border-t border-app-light-blue/10">
@@ -1066,21 +1058,14 @@ export default function App() {
 
 
       {/* History Slide-over */}
-      <AnimatePresence>
-        {showHistory && (
+      {showHistory && (
           <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <div 
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-overlay-in"
               onClick={() => setShowHistory(false)}
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40"
             />
-            <motion.aside 
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white z-50 shadow-2xl p-8 flex flex-col"
+            <aside 
+              className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white z-50 shadow-2xl p-8 flex flex-col slide-over"
             >
                <div className="flex justify-between items-center mb-8">
                 <h3 className="font-black text-2xl tracking-tighter text-slate-800 italic">Historique</h3>
@@ -1197,26 +1182,18 @@ export default function App() {
                   Nouvelle {docType === 'PROFORMA' ? 'Proforma' : 'Facture'}
                 </button>
               </div>
-            </motion.aside>
+            </aside>
           </>
         )}
-      </AnimatePresence>
 
       {/* Settings Modal */}
-      <AnimatePresence>
-        {showSettings && (
+      {showSettings && (
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            <div 
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-overlay-in"
             />
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl relative z-10 flex flex-col"
+            <div 
+              className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl relative z-10 flex flex-col animate-scale-in"
             >
               <div className="p-6 md:p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
                 <h3 className="font-bold text-xl text-slate-800">Paramètres Entreprise</h3>
@@ -1556,10 +1533,9 @@ export default function App() {
                   </button>
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
         )}
-      </AnimatePresence>
 
       {/* Mobile Totals Bar */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-app-light-blue/20 flex items-center justify-between z-30 shadow-[0_-10px_20px_rgba(10,31,44,0.05)]">

@@ -10,3 +10,73 @@
   --color-app-light-blue: #c0e0e7;
   --color-app-black: #000000;
 }
+
+/* ============================================================
+   Animations CSS — remplacement de Framer Motion
+   ============================================================ */
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeInX {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeOutScale {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.95); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to   { transform: translateX(100%); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes fadeInDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up   { animation: fadeInUp 0.5s ease-out both; }
+.animate-fade-in-scale { animation: fadeInScale 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) 0.2s both; }
+.animate-fade-in-x    { animation: fadeInX 0.25s ease-out both; }
+.animate-fade-in      { animation: fadeIn 0.3s ease-out both; }
+.animate-slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94) both; }
+.animate-scale-in     { animation: scaleIn 0.25s ease-out both; }
+.animate-fade-in-down { animation: fadeInDown 0.25s ease-out both; }
+
+/* Overlay backdrop */
+.animate-overlay-in   { animation: fadeIn 0.25s ease-out both; }
+
+/* Slide-over panel */
+.slide-over {
+  animation: slideInRight 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+/* Item row enter */
+.item-row-enter {
+  animation: fadeInX 0.2s ease-out both;
+}

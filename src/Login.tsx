@@ -4,7 +4,6 @@
  */
 
 import { useState } from 'react';
-import { motion } from 'motion/react';
 import { Eye, EyeOff, Lock, Mail, ArrowRight } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -19,6 +18,8 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotSent, setForgotSent] = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +33,6 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
     setIsLoading(true);
     
     try {
-      // Connexion avec Supabase Auth
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -45,13 +45,35 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
       }
 
       if (data.user) {
-        // Appeler onLogin pour mettre à jour l'état de l'application
         onLogin(email, password);
       }
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la connexion');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError('Entrez votre email ci-dessus pour recevoir le lien de réinitialisation');
+      return;
+    }
+    setError('');
+    setIsSendingReset(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (resetError) {
+        setError(resetError.message);
+      } else {
+        setForgotSent(true);
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de l\'envoi du lien');
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -63,24 +85,14 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-app-light-blue/20 rounded-full blur-3xl" />
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md relative z-10"
-      >
+      <div className="w-full max-w-md relative z-10 animate-fade-in-up">
         {/* Card */}
         <div className="bg-white rounded-3xl shadow-2xl shadow-app-navy/10 overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-app-navy to-app-navy/90 p-8 text-center">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg"
-            >
+            <div className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-fade-in-scale">
               <span className="text-3xl font-black text-app-navy">X</span>
-            </motion.div>
+            </div>
             <h1 className="text-3xl font-black text-white tracking-tight mb-2">XorForm</h1>
             <p className="text-app-light-blue/80 text-sm font-medium">Générateur de Proforma Professionnel</p>
           </div>
@@ -90,6 +102,23 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
             <h2 className="text-2xl font-bold text-app-navy mb-2">Bienvenue !</h2>
             <p className="text-slate-500 text-sm mb-6">Connectez-vous pour accéder à votre espace</p>
 
+            {forgotSent ? (
+              <div className="animate-fade-in text-center py-8 space-y-4">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+                  <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <p className="font-bold text-slate-800">Email envoyé !</p>
+                <p className="text-sm text-slate-500">Vérifiez votre boîte mail pour le lien de réinitialisation.</p>
+                <button
+                  onClick={() => setForgotSent(false)}
+                  className="text-app-navy font-semibold text-sm hover:underline"
+                >
+                  Retour à la connexion
+                </button>
+              </div>
+            ) : (
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
               <div className="space-y-2">
@@ -134,13 +163,9 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
 
               {/* Error Message */}
               {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium"
-                >
+                <div className="animate-fade-in-down bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
                   {error}
-                </motion.div>
+                </div>
               )}
 
               {/* Remember & Forgot */}
@@ -156,9 +181,11 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
                 </label>
                 <button
                   type="button"
-                  className="text-app-navy hover:text-app-navy/80 font-semibold transition-colors"
+                  onClick={handleForgotPassword}
+                  disabled={isSendingReset}
+                  className="text-app-navy hover:text-app-navy/80 font-semibold transition-colors disabled:opacity-50"
                 >
-                  Mot de passe oublié ?
+                  {isSendingReset ? 'Envoi...' : 'Mot de passe oublié ?'}
                 </button>
               </div>
 
@@ -181,14 +208,17 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
                 )}
               </button>
             </form>
+            )}
 
             {/* Sign Up Link */}
-            <p className="text-center text-sm text-slate-500 mt-6">
-              Pas encore de compte ?{' '}
-              <button onClick={onShowRegister} className="text-app-navy font-bold hover:underline">
-                Créer un compte
-              </button>
-            </p>
+            {!forgotSent && (
+              <p className="text-center text-sm text-slate-500 mt-6">
+                Pas encore de compte ?{' '}
+                <button onClick={onShowRegister} className="text-app-navy font-bold hover:underline">
+                  Créer un compte
+                </button>
+              </p>
+            )}
           </div>
         </div>
 
@@ -196,7 +226,7 @@ export default function Login({ onLogin, onShowRegister }: LoginProps) {
         <p className="text-center text-xs text-slate-400 mt-6">
           © 2026 XorForm. Tous droits réservés.
         </p>
-      </motion.div>
+      </div>
     </div>
   );
 }

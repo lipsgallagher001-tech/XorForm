@@ -179,33 +179,14 @@ export async function saveCompanySettings(
       rcs: settings.rcs || null
     };
 
-    // Vérifier si les paramètres existent déjà
-    const { data: existing, error: selectError } = await supabase
+    // Upsert : insère ou met à jour en une seule requête
+    const result = await supabase
       .from('company_settings')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (selectError) throw selectError;
-
-    let result;
-    if (existing) {
-      // Mise à jour
-      result = await supabase
-        .from('company_settings')
-        .update({
-          ...dataToSave,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .select();
-    } else {
-      // Insertion
-      result = await supabase
-        .from('company_settings')
-        .insert(dataToSave)
-        .select();
-    }
+      .upsert(
+        { ...dataToSave, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      )
+      .select();
 
     if (result.error) throw result.error;
 
@@ -347,31 +328,14 @@ export async function saveProforma(
       total: proforma.total
     };
 
-    // Vérifier si le proforma existe déjà
-    const { data: existing } = await supabase
+    // Upsert : insère ou met à jour en une seule requête
+    const result = await supabase
       .from('proformas')
-      .select('id')
-      .eq('id', proforma.id)
-      .single();
-
-    let result;
-    if (existing) {
-      // Mise à jour
-      result = await supabase
-        .from('proformas')
-        .update({
-          ...dataToInsert,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', proforma.id)
-        .select();
-    } else {
-      // Insertion
-      result = await supabase
-        .from('proformas')
-        .insert(dataToInsert)
-        .select();
-    }
+      .upsert(
+        { ...dataToInsert, updated_at: new Date().toISOString() },
+        { onConflict: 'id' }
+      )
+      .select();
 
     if (result.error) throw result.error;
 
