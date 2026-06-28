@@ -1029,20 +1029,20 @@ export default function App() {
             <div className="flex-1" />
 
             {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 px-10 mt-0 flex justify-between items-end min-h-[60px]">
-              {/* Services (left) */}
-              <div className="text-[7.5px] text-app-navy max-w-[55%]">
+            <div className="relative z-10 px-10 mt-0 flex justify-between items-start min-h-[60px]">
+              {/* Services (left, aligné en bas) */}
+              <div className="text-[7.5px] text-app-navy max-w-[55%] self-end">
                 {companyInfo.services && (
                   <p className="font-bold leading-snug">
                     NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
                   </p>
                 )}
               </div>
-              {/* Responsable + images (right) */}
-              <div className="text-right">
+              {/* RESPONSABLE au-dessus, images en dessous */}
+              <div className="text-right flex flex-col items-end">
                 <p className="text-[8px] font-black text-app-navy underline mb-1">RESPONSABLE</p>
                 {(companyInfo.stamp || companyInfo.signature) && (
-                  <div className="flex items-end justify-end gap-3">
+                  <div className="flex items-end justify-end gap-3 mt-1">
                     {companyInfo.stamp && (
                       <img src={companyInfo.stamp} alt="Cachet"
                         className="object-contain mix-blend-multiply opacity-80"
