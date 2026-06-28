@@ -282,7 +282,8 @@ export default function App() {
     // ✅ VALIDATION
     const validation = validateCompanyInfo(infoToSave);
     if (!validation.success) {
-      const errors = formatValidationErrors(validation.error.errors);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errors = formatValidationErrors(validation.error.issues as any[]);
       alert(`Erreurs de validation:\n\n${errors}`);
       console.error('Validation errors:', validation.error);
       setIsSavingSettings(false);
@@ -427,7 +428,8 @@ export default function App() {
     // ✅ VALIDATION
     const validation = validateProforma(proformaData);
     if (!validation.success) {
-      const errors = formatValidationErrors(validation.error.errors);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const errors = formatValidationErrors(validation.error.issues as any[]);
       alert(`Erreurs de validation:\n\n${errors}`);
       console.error('Validation errors:', validation.error);
       return;

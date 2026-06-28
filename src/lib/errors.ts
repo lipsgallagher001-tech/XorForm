@@ -150,10 +150,11 @@ export function handleError(error: unknown): AppError {
 /**
  * Formate les erreurs de validation Zod pour l'affichage
  */
-export function formatValidationErrors(errors: Array<{ path: (string | number)[]; message: string }>): string {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function formatValidationErrors(errors: Array<{ path: any[]; message: string }>): string {
   return errors
     .map(err => {
-      const field = err.path.join('.');
+      const field = err.path.map(String).join('.');
       return field ? `${field}: ${err.message}` : err.message;
     })
     .join('\n');

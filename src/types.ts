@@ -33,7 +33,7 @@ export interface CompanyInfo {
 
 export interface ClientInfo {
   name: string;
-  phone: string;
+  phone?: string;
   address?: string;
 }
 
