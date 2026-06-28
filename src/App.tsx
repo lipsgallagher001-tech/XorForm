@@ -1023,6 +1023,9 @@ export default function App() {
               </p>
             </div>
 
+            {/* Spacer — pousse le footer en bas */}
+            <div className="flex-1" />
+
             {/* ── SIGNATURE ZONE ── */}
             <div className="relative z-10 px-10 mt-2 flex justify-between items-end min-h-[60px]">
               {/* Services (left) */}
