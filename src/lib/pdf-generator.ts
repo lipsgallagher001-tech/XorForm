@@ -89,16 +89,6 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const PH   = doc.internal.pageSize.height;
   const M    = 15; // margin
 
-  // ── 1. Background diagonal pattern (light grey stripes) ──────────────────
-  doc.saveGraphicsState();
-  doc.setGState(new (doc as any).GState({ opacity: 0.04 }));
-  doc.setDrawColor(100, 100, 100);
-  doc.setLineWidth(8);
-  for (let x = -PH; x < PW + PH; x += 18) {
-    doc.line(x, 0, x + PH, PH);
-  }
-  doc.restoreGraphicsState();
-
   // ── 2. Header band ────────────────────────────────────────────────────────
   const headerH = 38;
 

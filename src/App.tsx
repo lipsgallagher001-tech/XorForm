@@ -883,18 +883,6 @@ export default function App() {
           {/* A4 paper */}
           <div className="w-full max-w-[560px] h-auto bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ minHeight: '790px' }}>
 
-            {/* Diagonal stripe background */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.045]" aria-hidden="true">
-              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <pattern id="diag" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
-                    <line x1="0" y1="0" x2="0" y2="24" stroke="#0a1f2c" strokeWidth="10"/>
-                  </pattern>
-                </defs>
-                <rect width="100%" height="100%" fill="url(#diag)" />
-              </svg>
-            </div>
-
             {/* ── HEADER ── */}
             <div className="relative z-10 px-5 pt-4 pb-2">
               <div className="flex justify-between items-start">
