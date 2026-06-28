@@ -255,48 +255,52 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   );
   totY += 10;
 
-  // ── 8. Signature / Stamp zone ─────────────────────────────────────────────
+  // ── 8. Signature / Stamp zone — positionné juste au-dessus du footer ──────
+  const footerY = PH - 31; // marge bas 2,5 cm + bande navy
+
+  // Calculer la hauteur de la zone signature
+  const stampH2 = company.stampHeight    || 22;
+  const sigH    = company.signatureHeight|| 22;
+  const maxImgH = Math.max(stampH2, sigH);
+  // La signature commence à footerY - hauteur_images - label - services
+  const servicesBlockH = company.services ? 14 : 0;
+  const sloganH = 12;
+  const sigZoneTop = footerY - maxImgH - 10 - servicesBlockH - sloganH;
+
   if (company.signature || company.stamp) {
     const stampW  = company.stampWidth     || 30;
-    const stampH2 = company.stampHeight    || 22;
     const sigW    = company.signatureWidth || 30;
-    const sigH    = company.signatureHeight|| 22;
 
     // "RESPONSABLE" label on right
     doc.setFontSize(8); doc.setFont('helvetica', 'bold');
     doc.setTextColor(...NAVY);
-    doc.text('RESPONSABLE', PW - M, totY + 3, { align: 'right' });
-    // underline
+    doc.text('RESPONSABLE', PW - M, sigZoneTop + 3, { align: 'right' });
     const rw = doc.getTextWidth('RESPONSABLE');
     doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
-    doc.line(PW - M - rw, totY + 4, PW - M, totY + 4);
+    doc.line(PW - M - rw, sigZoneTop + 4, PW - M, sigZoneTop + 4);
 
     if (company.stamp) {
       try {
         const opt = await optimizeImage(company.stamp, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW - stampW - 6, totY + 6, stampW, stampH2, undefined, 'FAST');
+        doc.addImage(opt.data, opt.format, PW - M - sigW - stampW - 6, sigZoneTop + 6, stampW, stampH2, undefined, 'FAST');
       } catch { /* skip */ }
     }
     if (company.signature) {
       try {
         const opt = await optimizeImage(company.signature, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW, totY + 6, sigW, sigH, undefined, 'FAST');
+        doc.addImage(opt.data, opt.format, PW - M - sigW, sigZoneTop + 6, sigW, sigH, undefined, 'FAST');
       } catch { /* skip */ }
     }
-    totY += Math.max(stampH2, sigH) + 8;
   } else {
-    // No images: just label
     doc.setFontSize(8); doc.setFont('helvetica', 'bold');
     doc.setTextColor(...NAVY);
-    doc.text('RESPONSABLE', PW - M, totY + 3, { align: 'right' });
+    doc.text('RESPONSABLE', PW - M, sigZoneTop + 3, { align: 'right' });
     const rw = doc.getTextWidth('RESPONSABLE');
     doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
-    doc.line(PW - M - rw, totY + 4, PW - M, totY + 4);
-    totY += 12;
+    doc.line(PW - M - rw, sigZoneTop + 4, PW - M, sigZoneTop + 4);
   }
 
   // ── 9. Footer ─────────────────────────────────────────────────────────────
-  const footerY = PH - 31; // marge bas 2,5 cm (25 mm) + bande navy 6 mm
 
   // Services (left, bold italic)
   if (company.services) {

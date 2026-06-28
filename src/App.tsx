@@ -1025,11 +1025,11 @@ export default function App() {
               </p>
             </div>
 
-            {/* Spacer — pousse le footer en bas */}
+            {/* Spacer — pousse signature+footer en bas */}
             <div className="flex-1" />
 
             {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 px-10 mt-2 flex justify-between items-end min-h-[60px]">
+            <div className="relative z-10 px-10 mt-0 flex justify-between items-end min-h-[60px]">
               {/* Services (left) */}
               <div className="text-[7.5px] text-app-navy max-w-[55%]">
                 {companyInfo.services && (
@@ -1059,7 +1059,7 @@ export default function App() {
             </div>
 
             {/* ── FOOTER ── */}
-            <div className="relative z-10 px-10 mt-2 pb-10 flex justify-between items-end">
+            <div className="relative z-10 px-10 mt-3 pb-10 flex justify-between items-end">
               {/* Slogan */}
               <p className="font-black italic text-[11px] sm:text-[13px] text-app-navy leading-tight max-w-[60%]">
                 {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
