@@ -103,6 +103,24 @@ export function invalidateCache(key: string): void {
 }
 
 /**
+ * Invalider toutes les entrées de cache dont la clé commence par un préfixe donné.
+ * Utile pour invalider `proformas_userId_20`, `proformas_userId_50`, etc. en une seule fois.
+ */
+export function invalidateCacheByPrefix(prefix: string): void {
+  try {
+    const fullPrefix = `cache_${prefix}`;
+    const keys = Object.keys(localStorage);
+    keys.forEach(key => {
+      if (key.startsWith(fullPrefix)) {
+        localStorage.removeItem(key);
+      }
+    });
+  } catch (error) {
+    console.warn('Erreur cache (invalidateCacheByPrefix):', error);
+  }
+}
+
+/**
  * Invalider tout le cache
  */
 export function clearCache(): void {

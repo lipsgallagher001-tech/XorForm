@@ -28,7 +28,8 @@ import {
   loadCompanySettings, 
   loadCompanyImages,
   saveCompanySettings, 
-  loadProformas, 
+  loadProformas,
+  loadProformaDetails,
   saveProforma as saveProformaToSupabase, 
   deleteProforma,
   deleteMultipleProformas 
@@ -545,14 +546,26 @@ export default function App() {
     }
   };
 
-  const loadFromHistory = (p: Proforma) => {
-    setViewingHistoryId(p.id);
-    setDocType(p.type || 'PROFORMA');
-    setClient(p.client);
-    setItems(p.items);
-    setDiscountPercent(p.discountPercent || 0);
-    setProformaNumber(p.number);
-    setProformaDate(p.date);
+  const loadFromHistory = async (p: Proforma) => {
+    // Si les items ne sont pas chargés (optimisation perf au chargement),
+    // on les récupère depuis Supabase avant de remplir le formulaire.
+    let proformaToLoad = p;
+    if (!p.items || p.items.length === 0) {
+      const details = await loadProformaDetails(p.id);
+      if (details) {
+        proformaToLoad = details;
+        // Mettre à jour l'entrée dans l'historique local pour éviter de refaire la requête
+        setHistory(prev => prev.map(h => h.id === p.id ? details : h));
+      }
+    }
+
+    setViewingHistoryId(proformaToLoad.id);
+    setDocType(proformaToLoad.type || 'PROFORMA');
+    setClient(proformaToLoad.client);
+    setItems(proformaToLoad.items);
+    setDiscountPercent(proformaToLoad.discountPercent || 0);
+    setProformaNumber(proformaToLoad.number);
+    setProformaDate(proformaToLoad.date);
     setShowHistory(false);
   };
 

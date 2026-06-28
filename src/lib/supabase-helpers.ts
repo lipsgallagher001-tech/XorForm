@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { Proforma, CompanyInfo } from '../types';
 import { createError, handleError, ErrorCodes, AppError } from './errors';
-import { getCache, setCache, invalidateCache } from './cache';
+import { getCache, setCache, invalidateCache, invalidateCacheByPrefix } from './cache';
 import { perfMonitor } from './performance';
 
 /**
@@ -339,8 +339,8 @@ export async function saveProforma(
 
     if (result.error) throw result.error;
 
-    // ⚡ OPTIMISATION: Invalider le cache après sauvegarde
-    invalidateCache(`proformas_${userId}`);
+    // ⚡ OPTIMISATION: Invalider toutes les variantes de cache (proformas_userId_20, _50, etc.)
+    invalidateCacheByPrefix(`proformas_${userId}`);
 
     console.log('✅ Proforma sauvegardé');
     return { success: true, data: result.data };
@@ -369,8 +369,8 @@ export async function deleteProforma(proformaId: string, userId: string): Promis
       throw error;
     }
 
-    // ⚡ OPTIMISATION: Invalider le cache après suppression
-    invalidateCache(`proformas_${userId}`);
+    // ⚡ OPTIMISATION: Invalider toutes les variantes de cache (proformas_userId_20, _50, etc.)
+    invalidateCacheByPrefix(`proformas_${userId}`);
 
     console.log('✅ Proforma supprimé avec succès');
     return { success: true };
@@ -398,8 +398,8 @@ export async function deleteMultipleProformas(proformaIds: string[], userId: str
       throw error;
     }
 
-    // ⚡ OPTIMISATION: Invalider le cache après suppression
-    invalidateCache(`proformas_${userId}`);
+    // ⚡ OPTIMISATION: Invalider toutes les variantes de cache (proformas_userId_20, _50, etc.)
+    invalidateCacheByPrefix(`proformas_${userId}`);
 
     console.log(`✅ ${proformaIds.length} proformas supprimés avec succès`);
     return { success: true };
