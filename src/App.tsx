@@ -941,7 +941,7 @@ export default function App() {
             </div>
 
             {/* ── TABLE ── */}
-            <div className="relative z-10 px-10 flex-1">
+            <div className="relative z-10 px-10">
               <table className="w-full border-collapse text-[8px] sm:text-[9px]">
                 <thead>
                   <tr className="bg-app-navy text-white">
