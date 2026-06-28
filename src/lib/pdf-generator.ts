@@ -222,7 +222,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const discountAmt   = (subtotal * (proforma.discountPercent || 0)) / 100;
   const totalHT       = subtotal - discountAmt;
 
-  let totY = afterTableY;
+  let totY = afterTableY + 3;
 
   // Sous-total line
   doc.setFontSize(8); doc.setFont('helvetica', 'normal');

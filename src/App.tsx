@@ -975,7 +975,7 @@ export default function App() {
             </div>
 
             {/* ── TOTALS ── */}
-            <div className="relative z-10 px-10 -mt-px">
+            <div className="relative z-10 px-10 mt-2">
               {/* Sous-total + Remise (right aligned text) */}
               <div className="text-right text-[8px] text-slate-500 space-y-0.5 mb-0">
                 <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
