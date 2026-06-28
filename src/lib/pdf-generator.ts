@@ -96,7 +96,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const logoW = company.logoWidth  || 16;
   const logoH = company.logoHeight || 16;
   const logoX = M;
-  const logoY = 8;
+  const logoY = 25; // marge haut 2,5 cm
 
   if (company.logo) {
     try {
@@ -296,7 +296,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   }
 
   // ── 9. Footer ─────────────────────────────────────────────────────────────
-  const footerY = PH - 28;
+  const footerY = PH - 31; // marge bas 2,5 cm (25 mm) + bande navy 6 mm
 
   // Services (left, bold italic)
   if (company.services) {
