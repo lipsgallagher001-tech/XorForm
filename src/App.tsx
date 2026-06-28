@@ -494,13 +494,36 @@ export default function App() {
     };
   };
 
+  /**
+   * Retourne un proforma avec ses items chargés.
+   * Si les items sont vides (optimisation perf du chargement depuis l'historique),
+   * les récupère depuis Supabase. Ne tente PAS Supabase pour les nouvelles saisies.
+   */
+  const getProformaWithItems = async (p: Proforma): Promise<Proforma> => {
+    // Si les items sont présents, pas besoin de charger depuis Supabase
+    if (p.items && p.items.length > 0) return p;
+    // Si c'est l'ID courant (nouvelle saisie non encore sauvegardée), retourner tel quel
+    if (p.id === currentId && !viewingHistoryId) return p;
+    // Sinon, c'est un document de l'historique avec items vides → recharger depuis Supabase
+    const details = await loadProformaDetails(p.id);
+    if (details) {
+      // Mettre à jour le cache local pour éviter une double requête
+      setHistory(prev => prev.map(h => h.id === p.id ? details : h));
+      return details;
+    }
+    return p;
+  };
+
   const handleExport = async (p: Proforma) => {
     setIsGeneratingPDF(true);
     try {
       // ⚡ LAZY LOADING: jsPDF chargé uniquement à la demande (-417 KB au démarrage)
       const { generatePDF } = await import('./lib/pdf-generator');
-      const companyWithImages = await getCompanyInfoWithImages();
-      await generatePDF(p, companyWithImages);
+      const [companyWithImages, proformaWithItems] = await Promise.all([
+        getCompanyInfoWithImages(),
+        getProformaWithItems(p)
+      ]);
+      await generatePDF(proformaWithItems, companyWithImages);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
@@ -522,20 +545,23 @@ export default function App() {
     try {
       // ⚡ LAZY LOADING: jsPDF chargé uniquement à la demande
       const { generatePDF, getPDFBlob } = await import('./lib/pdf-generator');
-      const companyWithImages = await getCompanyInfoWithImages();
-      const blob = await getPDFBlob(p, companyWithImages);
-      const filename = `${p.type.toLowerCase()}-${p.number}.pdf`;
+      const [companyWithImages, proformaWithItems] = await Promise.all([
+        getCompanyInfoWithImages(),
+        getProformaWithItems(p)
+      ]);
+      const blob = await getPDFBlob(proformaWithItems, companyWithImages);
+      const filename = `${proformaWithItems.type.toLowerCase()}-${proformaWithItems.number}.pdf`;
       const file = new File([blob], filename, { type: 'application/pdf' });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           files: [file],
-          title: `${p.type} ${p.number}`,
-          text: `Voici votre ${p.type.toLowerCase()} N° ${p.number}`
+          title: `${proformaWithItems.type} ${proformaWithItems.number}`,
+          text: `Voici votre ${proformaWithItems.type.toLowerCase()} N° ${proformaWithItems.number}`
         });
       } else {
         // Fallback for browsers that don't support file sharing
-        await generatePDF(p, companyWithImages);
+        await generatePDF(proformaWithItems, companyWithImages);
         alert("Le partage de fichiers n'est pas supporté par votre navigateur. Le fichier a été téléchargé.");
       }
     } catch (error) {
@@ -616,10 +642,10 @@ export default function App() {
           <div className="w-px h-4 bg-app-light-blue/50 mx-1" />
           <button 
             onClick={() => handleExport({
-              id: currentId,
+              id: viewingHistoryId || currentId,
               type: docType,
               number: proformaNumber,
-              date: new Date().toISOString(),
+              date: proformaDate,
               client,
               items,
               total,
@@ -895,11 +921,11 @@ export default function App() {
 
         {/* Preview Pane (Right) */}
         <section className={`flex-1 bg-slate-200 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-          {/* A4 paper */}
-          <div className="w-full max-w-[560px] h-auto bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ minHeight: '790px' }}>
+          {/* A4 paper — ratio 1:√2, max 600px de large */}
+          <div className="w-full max-w-[600px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ aspectRatio: '1 / 1.4142' }}>
 
             {/* ── HEADER ── */}
-            <div className="relative z-10 px-10 pt-10 pb-2">
+            <div className="relative z-10 px-8 pt-7 pb-2 shrink-0">
               <div className="flex justify-between items-start">
                 {/* Left: logo + company info */}
                 <div className="flex items-start gap-3">
@@ -909,30 +935,30 @@ export default function App() {
                       alt="Logo"
                       className="object-contain shrink-0"
                       style={{
-                        width:  `${(companyInfo.logoWidth  || 15) * 3.2}px`,
-                        height: `${(companyInfo.logoHeight || 15) * 3.2}px`,
+                        width:  `${(companyInfo.logoWidth  || 18) * 3.2}px`,
+                        height: `${(companyInfo.logoHeight || 18) * 3.2}px`,
                       }}
                     />
                   ) : (
-                    <div className="w-9 h-9 bg-app-navy rounded flex items-center justify-center text-white font-bold text-base shrink-0">
+                    <div className="w-10 h-10 bg-app-navy rounded flex items-center justify-center text-white font-bold text-base shrink-0">
                       {companyInfo.name.charAt(0).toUpperCase()}
                     </div>
                   )}
                   <div>
-                    <p className="font-black text-[11px] text-app-navy leading-tight">{companyInfo.name}</p>
-                    <p className="text-[8px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
-                    <p className="text-[8px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
-                    <p className="text-[8px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
-                    {companyInfo.siret && <p className="text-[7px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
+                    <p className="font-black text-[12px] text-app-navy leading-tight">{companyInfo.name}</p>
+                    <p className="text-[9px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
+                    <p className="text-[9px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
+                    <p className="text-[9px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
+                    {companyInfo.siret && <p className="text-[8px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
                   </div>
                 </div>
                 {/* Right: doc type + date */}
                 <div className="text-right shrink-0">
-                  <p className="font-black text-[11px] text-app-navy uppercase leading-tight">
+                  <p className="font-black text-[12px] text-app-navy uppercase leading-tight">
                     {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
                   </p>
-                  <p className="text-[8px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
-                  <p className="text-[8px] text-slate-600">Validité :</p>
+                  <p className="text-[9px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
+                  <p className="text-[9px] text-slate-600">Validité :</p>
                 </div>
               </div>
               {/* Separator */}
@@ -940,49 +966,47 @@ export default function App() {
             </div>
 
             {/* ── TITLE ── */}
-            <div className="relative z-10 px-10 py-2 text-center">
-              <p className="font-black text-[15px] sm:text-[17px] text-app-navy tracking-tight">
+            <div className="relative z-10 px-8 py-2 text-center shrink-0">
+              <p className="font-black text-[15px] text-app-navy tracking-tight">
                 {docType === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA'} : {proformaNumber}
               </p>
               <div className="w-full h-px bg-slate-300 mt-1" />
             </div>
 
             {/* ── CLIENT BAND ── */}
-            <div className="relative z-10 mx-10 mb-3 bg-app-light-blue/60 px-3 py-2">
-              <p className="text-[8px] font-bold text-app-navy leading-none">Facture à</p>
-              <p className="text-[9px] font-black text-app-navy mt-0.5">
+            <div className="relative z-10 mx-8 mb-2 bg-app-light-blue/60 px-3 py-2 shrink-0">
+              <p className="text-[8.5px] font-bold text-app-navy leading-none">Facture à</p>
+              <p className="text-[10px] font-black text-app-navy mt-0.5">
                 Client : {(client.name || 'NOM DU CLIENT').toUpperCase()}
               </p>
             </div>
 
-            {/* ── TABLE ── */}
-            <div className="relative z-10 px-10">
-              <table className="w-full border-collapse text-[8px] sm:text-[9px]">
+            {/* ── TABLE — flex-1 pour occuper l'espace disponible ── */}
+            <div className="relative z-10 px-8 flex-1 overflow-hidden">
+              <table className="w-full border-collapse text-[8.5px]">
                 <thead>
                   <tr className="bg-app-navy text-white">
-                    <th className="py-2 px-3 font-bold text-left border-r border-white/20">Description</th>
+                    <th className="py-2 px-2.5 font-bold text-left border-r border-white/20">Description</th>
                     <th className="py-2 px-2 font-bold text-center w-14 border-r border-white/20">Quantité</th>
-                    <th className="py-2 px-3 font-bold text-right w-24 border-r border-white/20">Prix unitaire</th>
-                    <th className="py-2 px-3 font-bold text-right w-24">Total</th>
+                    <th className="py-2 px-2.5 font-bold text-right w-24 border-r border-white/20">Prix unitaire</th>
+                    <th className="py-2 px-2.5 font-bold text-right w-24">Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Real items */}
                   {items.map((item, i) => (
                     <tr key={i} className="border-b border-slate-200">
-                      <td className="py-1.5 px-3 text-app-navy border-r border-slate-200">{item.description || ''}</td>
+                      <td className="py-1.5 px-2.5 text-app-navy border-r border-slate-200">{item.description || ''}</td>
                       <td className="py-1.5 px-2 text-center text-app-navy border-r border-slate-200">{item.quantity}</td>
-                      <td className="py-1.5 px-3 text-right text-app-navy/70 border-r border-slate-200 whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
-                      <td className="py-1.5 px-3 text-right font-bold text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
+                      <td className="py-1.5 px-2.5 text-right text-app-navy/70 border-r border-slate-200 whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
+                      <td className="py-1.5 px-2.5 text-right font-bold text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
                     </tr>
                   ))}
-                  {/* Empty rows to fill table like the reference */}
                   {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
                     <tr key={`empty-${i}`} className="border-b border-slate-200">
-                      <td className="py-1.5 px-3 border-r border-slate-200">&nbsp;</td>
+                      <td className="py-1.5 px-2.5 border-r border-slate-200">&nbsp;</td>
                       <td className="py-1.5 px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="py-1.5 px-3 border-r border-slate-200">&nbsp;</td>
-                      <td className="py-1.5 px-3">&nbsp;</td>
+                      <td className="py-1.5 px-2.5 border-r border-slate-200">&nbsp;</td>
+                      <td className="py-1.5 px-2.5">&nbsp;</td>
                     </tr>
                   ))}
                 </tbody>
@@ -990,25 +1014,23 @@ export default function App() {
             </div>
 
             {/* ── TOTALS ── */}
-            <div className="relative z-10 px-10 mt-2">
-              {/* Sous-total + Remise (right aligned text) */}
-              <div className="text-right text-[8px] text-slate-500 space-y-0.5 mb-0">
+            <div className="relative z-10 px-8 mt-2 shrink-0">
+              <div className="text-right text-[8.5px] text-slate-500 space-y-0.5">
                 <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
                 {discountPercent > 0 && (
                   <p>Remise : {discountAmount.toLocaleString()} F</p>
                 )}
               </div>
-              {/* Yellow total bar */}
               <div className="bg-app-yellow flex items-center justify-end px-3 py-2">
-                <span className="font-black text-[10px] sm:text-[11px] text-app-navy">
+                <span className="font-black text-[11px] text-app-navy">
                   Total HT : {total.toLocaleString()} F CFA
                 </span>
               </div>
             </div>
 
             {/* ── AMOUNT IN WORDS ── */}
-            <div className="relative z-10 px-10 mt-2">
-              <p className="text-[9px] italic text-slate-600">
+            <div className="relative z-10 px-8 mt-2 shrink-0">
+              <p className="text-[8.5px] italic text-slate-600">
                 Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
                   (() => {
                     const n = Math.round(total);
@@ -1038,33 +1060,21 @@ export default function App() {
               </p>
             </div>
 
-            {/* Spacer — pousse signature+footer en bas */}
-            <div className="flex-1" />
-
             {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 px-10 mt-0 flex justify-between items-start min-h-[60px]">
-              {/* Services (left, aligné en bas) */}
-              <div className="text-[7.5px] text-app-navy max-w-[55%] self-end">
-                {companyInfo.services && (
-                  <p className="font-bold leading-snug">
-                    NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
-                  </p>
-                )}
-              </div>
-              {/* RESPONSABLE au-dessus, images en dessous */}
+            <div className="relative z-10 px-8 mt-3 flex justify-end items-end shrink-0">
               <div className="text-right flex flex-col items-end">
-                <p className="text-[8px] font-black text-app-navy underline mb-1">RESPONSABLE</p>
+                <p className="text-[8.5px] font-black text-app-navy underline mb-1">RESPONSABLE</p>
                 {(companyInfo.stamp || companyInfo.signature) && (
-                  <div className="flex items-end justify-end gap-3 mt-1">
+                  <div className="flex items-end justify-end gap-3">
                     {companyInfo.stamp && (
                       <img src={companyInfo.stamp} alt="Cachet"
                         className="object-contain mix-blend-multiply opacity-80"
-                        style={{ height: `${(companyInfo.stampHeight || 22) * 3.2}px` }} />
+                        style={{ height: `${(companyInfo.stampHeight || 25) * 3.0}px` }} />
                     )}
                     {companyInfo.signature && (
                       <img src={companyInfo.signature} alt="Signature"
                         className="object-contain mix-blend-multiply"
-                        style={{ height: `${(companyInfo.signatureHeight || 22) * 3.2}px` }} />
+                        style={{ height: `${(companyInfo.signatureHeight || 25) * 3.0}px` }} />
                     )}
                   </div>
                 )}
@@ -1072,12 +1082,17 @@ export default function App() {
             </div>
 
             {/* ── FOOTER ── */}
-            <div className="relative z-10 px-10 mt-3 pb-10 flex justify-between items-end">
-              {/* Slogan */}
-              <p className="font-black italic text-[11px] sm:text-[13px] text-app-navy leading-tight max-w-[60%]">
-                {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
-              </p>
-              {/* Short name + small square */}
+            <div className="relative z-10 px-8 mt-3 pb-3 flex justify-between items-end shrink-0">
+              <div className="max-w-[62%]">
+                {companyInfo.services && (
+                  <p className="text-[8px] font-bold text-app-navy leading-snug mb-1.5">
+                    NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
+                  </p>
+                )}
+                <p className="font-black italic text-[12px] text-app-navy leading-tight">
+                  {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
+                </p>
+              </div>
               <div className="flex items-end gap-2">
                 <p className="text-[8px] text-slate-500">{companyInfo.name.split(' ')[0]}</p>
                 <div className="w-5 h-5 border border-slate-300" />
@@ -1085,7 +1100,7 @@ export default function App() {
             </div>
 
             {/* Navy bottom band */}
-            <div className="relative z-10 w-full h-3 bg-app-navy mt-1" />
+            <div className="relative z-10 w-full h-3 bg-app-navy shrink-0" />
           </div>
         </section>
       </main>

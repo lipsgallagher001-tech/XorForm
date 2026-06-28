@@ -69,110 +69,119 @@ const optimizeImage = async (
     img.src = base64;
   });
 
-// ─── colours (matching the design) ─────────────────────────────────────────
-const NAVY  = [10,  31, 44]  as const;   // #0a1f2c
-const YELLOW= [255,204,  0]  as const;   // #ffcc00
-const LBLUE = [192,224,231]  as const;   // #c0e0e7
-const WHITE = [255,255,255]  as const;
-const GREY  = [230,230,230]  as const;
+// ─── couleurs ────────────────────────────────────────────────────────────────
+const NAVY   = [10,  31,  44] as const;
+const YELLOW = [255, 204,   0] as const;
+const LBLUE  = [192, 224, 231] as const;
+const WHITE  = [255, 255, 255] as const;
 
-// ─── main generator ─────────────────────────────────────────────────────────
+// ─── générateur ──────────────────────────────────────────────────────────────
 
 const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Promise<jsPDF> => {
-  const extraH   = (company.signature || company.stamp) ? 45 : 10;
-  const tableH   = proforma.items.length * 10 + 14;
-  const requiredH= 30 + 45 + tableH + 50 + extraH + 35;
-  const pageH    = Math.max(200, requiredH);
+  const M  = 15; // marges gauche/droite/haut en mm (réduit pour plus d'espace)
+  const PW = 210;
+  const PH = 297;
 
-  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: [210, pageH] });
-  const PW   = doc.internal.pageSize.width;   // 210
-  const PH   = doc.internal.pageSize.height;
-  const M    = 25; // margin 2,5 cm
+  const stampH2 = company.stampHeight    || 25;
+  const sigH    = company.signatureHeight|| 25;
+  const maxImgH = Math.max(stampH2, sigH);
+  const hasSig  = !!(company.signature || company.stamp);
+  const svcH    = company.services ? 8 : 0;
 
-  // ── 2. Header band ────────────────────────────────────────────────────────
-  const headerH = 38;
+  // ── Zones ancrées depuis le bas ────────────────────────────────────────────
+  // bande navy (5) + marge bas (15) + footer: slogan(10) + services(svcH) + sig + label(8)
+  const sigBlockH  = hasSig ? maxImgH + 8 : 0;
+  const footerBlockH = svcH + 10;          // services + slogan
+  const bottomReserved = 5 + M + footerBlockH + sigBlockH + 8 + 6;
+  //                      navy  marge  footer         sig      label+gap  gap
 
-  // Logo
-  const logoW = company.logoWidth  || 16;
-  const logoH = company.logoHeight || 16;
-  const logoX = M;
-  const logoY = 25; // marge haut 2,5 cm
+  const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+  // ── 1. HEADER ──────────────────────────────────────────────────────────────
+  let y = M;
+
+  const logoW = company.logoWidth  || 18;
+  const logoH = company.logoHeight || 18;
 
   if (company.logo) {
     try {
       const opt = await optimizeImage(company.logo, 400);
-      doc.addImage(opt.data, opt.format, logoX, logoY, logoW, logoH, undefined, 'FAST');
+      doc.addImage(opt.data, opt.format, M, y, logoW, logoH, undefined, 'FAST');
     } catch {
       doc.setFillColor(...NAVY);
-      doc.roundedRect(logoX, logoY, logoW, logoH, 1, 1, 'F');
+      doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
       doc.setTextColor(...WHITE);
-      doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-      doc.text(company.name.charAt(0).toUpperCase(), logoX + logoW / 2, logoY + logoH / 2 + 4, { align: 'center' });
+      doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+      doc.text(company.name.charAt(0).toUpperCase(), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
     }
   } else {
     doc.setFillColor(...NAVY);
-    doc.roundedRect(logoX, logoY, logoW, logoH, 1, 1, 'F');
+    doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
     doc.setTextColor(...WHITE);
-    doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-    doc.text(company.name.charAt(0).toUpperCase(), logoX + logoW / 2, logoY + logoH / 2 + 4, { align: 'center' });
+    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+    doc.text(company.name.charAt(0).toUpperCase(), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
   }
 
-  // Company name + info
-  const infoX = logoX + logoW + 4;
+  // Infos entreprise
+  const infoX = M + logoW + 5;
   doc.setTextColor(...NAVY);
   doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-  doc.text(company.name, infoX, logoY + 4);
+  doc.text(company.name, infoX, y + 5);
 
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-  doc.setTextColor(60, 60, 60);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
   const infoLines: string[] = [company.address, company.phone, company.email];
   if (company.siret) infoLines.push(`SIRET: ${company.siret}`);
-  infoLines.forEach((line, i) => doc.text(line, infoX, logoY + 9 + i * 4));
+  infoLines.forEach((line, i) => doc.text(line, infoX, y + 11 + i * 4.2));
 
-  // Right: PRO-FORMA / Date / Validité
+  // Droite
   doc.setTextColor(...NAVY);
   doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-  doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, logoY + 4, { align: 'right' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-  doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, logoY + 9, { align: 'right' });
-  doc.text('Validité :', PW - M, logoY + 14, { align: 'right' });
+  doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 5, { align: 'right' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 11, { align: 'right' });
+  doc.text('Validité :', PW - M, y + 16, { align: 'right' });
 
-  // Separator line
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.6);
-  doc.line(M, logoY + headerH - 8, PW - M, logoY + headerH - 8);
+  y += Math.max(logoH, 24) + 5;
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.7);
+  doc.line(M, y, PW - M, y);
+  y += 6;
 
-  // ── 3. Document number title ──────────────────────────────────────────────
-  const titleY = logoY + headerH + 4;
-  doc.setFontSize(17); doc.setFont('helvetica', 'bold');
+  // ── 2. TITRE ───────────────────────────────────────────────────────────────
+  doc.setFontSize(16); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...NAVY);
   const label = proforma.type === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA';
-  doc.text(`${label} : ${proforma.number}`, PW / 2, titleY, { align: 'center' });
-
-  // underline
+  doc.text(`${label} : ${proforma.number}`, PW / 2, y, { align: 'center' });
   const titleW = doc.getTextWidth(`${label} : ${proforma.number}`);
-  doc.setDrawColor(...NAVY);
-  doc.setLineWidth(0.4);
-  doc.line(PW / 2 - titleW / 2, titleY + 1.5, PW / 2 + titleW / 2, titleY + 1.5);
+  y += 2;
+  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.4);
+  doc.line(PW / 2 - titleW / 2, y, PW / 2 + titleW / 2, y);
+  y += 7;
 
-  // ── 4. Client band (light blue background) ───────────────────────────────
-  const clientY = titleY + 8;
-  const clientH = 12;
+  // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
+  const clientH = 14;
   doc.setFillColor(...LBLUE);
-  doc.rect(M, clientY, PW - 2 * M, clientH, 'F');
-
+  doc.rect(M, y, PW - 2 * M, clientH, 'F');
   doc.setTextColor(...NAVY);
   doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-  doc.text('Facture à', M + 3, clientY + 4);
-  doc.setFontSize(9);
-  doc.text(`Client : ${proforma.client.name.toUpperCase()}`, M + 3, clientY + 9);
+  doc.text('Facture à', M + 3, y + 5);
+  doc.setFontSize(9.5);
+  doc.text(`Client : ${proforma.client.name.toUpperCase()}`, M + 3, y + 11);
   if (proforma.client.phone) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5);
-    doc.text(proforma.client.phone, PW - M - 3, clientY + 9, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+    doc.text(proforma.client.phone, PW - M - 3, y + 11, { align: 'right' });
   }
+  y += clientH + 5;
 
-  // ── 5. Items table ────────────────────────────────────────────────────────
-  const tableStartY = clientY + clientH + 5;
+  // ── 4. TABLEAU ─────────────────────────────────────────────────────────────
+  // Calcul de l'espace disponible pour le tableau
+  const totalsH  = 30;  // sous-total + barre jaune + lettres
+  const availForTable = PH - y - totalsH - bottomReserved;
+  const ROW_H    = 9.0;
+  const HEAD_H   = 11;
+  const MIN_ROWS = 6;
+  const maxRows  = Math.max(MIN_ROWS, Math.floor((availForTable - HEAD_H) / ROW_H));
 
   const tableData = proforma.items.map(item => [
     item.description || '',
@@ -180,13 +189,10 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     fmtCur(item.unitPrice),
     fmtCur(item.quantity * item.unitPrice)
   ]);
-
-  // Add empty rows to always show at least 6 lines (like the reference)
-  const minRows = 6;
-  while (tableData.length < minRows) tableData.push(['', '', '', '']);
+  while (tableData.length < maxRows) tableData.push(['', '', '', '']);
 
   autoTable(doc, {
-    startY: tableStartY,
+    startY: y,
     margin: { left: M, right: M },
     head: [['Description', 'Quantité', 'Prix unitaire', 'Total']],
     body: tableData,
@@ -194,7 +200,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     headStyles: {
       fillColor: [...NAVY] as [number, number, number],
       textColor: [...WHITE] as [number, number, number],
-      fontSize: 8.5,
+      fontSize: 9,
       fontStyle: 'bold',
       halign: 'left',
       cellPadding: 3,
@@ -202,137 +208,111 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       lineWidth: 0.1,
     },
     styles: {
-      fontSize: 8.5,
+      fontSize: 9,
       cellPadding: 3,
       textColor: [...NAVY] as [number, number, number],
-      lineColor: [180, 180, 180],
+      lineColor: [210, 210, 210],
       lineWidth: 0.1,
+      minCellHeight: ROW_H,
     },
     columnStyles: {
-      1: { halign: 'center', cellWidth: 22 },
-      2: { halign: 'right',  cellWidth: 35 },
-      3: { halign: 'right',  cellWidth: 35, fontStyle: 'bold' },
+      0: { cellWidth: 'auto' },
+      1: { halign: 'center', cellWidth: 24 },
+      2: { halign: 'right',  cellWidth: 34 },
+      3: { halign: 'right',  cellWidth: 34, fontStyle: 'bold' },
     },
   });
 
-  const afterTableY = (doc as any).lastAutoTable.finalY;
+  y = (doc as any).lastAutoTable.finalY;
 
-  // ── 6. Totals ─────────────────────────────────────────────────────────────
-  const subtotal      = proforma.items.reduce((a, i) => a + i.quantity * i.unitPrice, 0);
-  const discountAmt   = (subtotal * (proforma.discountPercent || 0)) / 100;
-  const totalHT       = subtotal - discountAmt;
+  // ── 5. TOTAUX ──────────────────────────────────────────────────────────────
+  y += 4;
+  const subtotal    = proforma.items.reduce((a, i) => a + i.quantity * i.unitPrice, 0);
+  const discountAmt = (subtotal * (proforma.discountPercent || 0)) / 100;
+  const totalHT     = subtotal - discountAmt;
 
-  let totY = afterTableY + 3;
-
-  // Sous-total line
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
-  doc.text(`Sous-total : ${fmtCur(subtotal)} CFA`, PW - M, totY, { align: 'right' });
-  totY += 5;
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Sous-total : ${fmtCur(subtotal)} CFA`, PW - M, y, { align: 'right' });
+  y += 5;
 
   if ((proforma.discountPercent || 0) > 0) {
-    doc.text(`Remise : ${fmtCur(discountAmt)} F`, PW - M, totY, { align: 'right' });
-    totY += 5;
+    doc.text(`Remise : ${fmtCur(discountAmt)} F`, PW - M, y, { align: 'right' });
+    y += 5;
   }
 
-  // Yellow total bar (full width)
-  const barH = 10;
+  const barH = 11;
   doc.setFillColor(...YELLOW);
-  doc.rect(M, totY, PW - 2 * M, barH, 'F');
+  doc.rect(M, y, PW - 2 * M, barH, 'F');
   doc.setTextColor(...NAVY);
-  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-  doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, totY + 6.8, { align: 'right' });
-  totY += barH + 6;
+  doc.setFontSize(10.5); doc.setFont('helvetica', 'bold');
+  doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, y + 7.5, { align: 'right' });
+  y += barH + 5;
 
-  // ── 7. Amount in words ────────────────────────────────────────────────────
+  // ── 6. MONTANT EN LETTRES ──────────────────────────────────────────────────
   const words = numberToWords(Math.round(totalHT));
-  doc.setFontSize(9); doc.setFont('helvetica', 'italic');
-  doc.setTextColor(60, 60, 60);
-  doc.text(
-    `Arrêtée la présente facture à la somme de : ${words}`,
-    M, totY,
-    { maxWidth: PW - 2 * M }
-  );
-  totY += 10;
+  const wordsText = `Arrêtée la présente facture à la somme de : ${words}`;
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'italic');
+  doc.setTextColor(80, 80, 80);
+  const fullLines = doc.splitTextToSize(wordsText, PW - 2 * M);
+  doc.text(fullLines, M, y);
+  y += fullLines.length * 5 + 3;
 
-  // ── 8. Signature / Stamp zone — positionné juste au-dessus du footer ──────
-  const footerY = PH - 31; // marge bas 2,5 cm + bande navy
+  // ── 7. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
+  // Y de la zone signature = PH - bottomReserved + offset
+  const sigLabelY = PH - 5 - M - footerBlockH - sigBlockH - 8;
 
-  // Calculer la hauteur de la zone signature
-  const stampH2 = company.stampHeight    || 22;
-  const sigH    = company.signatureHeight|| 22;
-  const maxImgH = Math.max(stampH2, sigH);
-  // La signature commence à footerY - hauteur_images - label - services
-  const servicesBlockH = company.services ? 14 : 0;
-  const sloganH = 12;
-  const sigZoneTop = footerY - maxImgH - 10 - servicesBlockH - sloganH;
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...NAVY);
+  doc.text('RESPONSABLE', PW - M, sigLabelY, { align: 'right' });
+  const labelW = doc.getTextWidth('RESPONSABLE');
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
+  doc.line(PW - M - labelW, sigLabelY + 1.5, PW - M, sigLabelY + 1.5);
 
-  if (company.signature || company.stamp) {
-    const stampW  = company.stampWidth     || 30;
-    const sigW    = company.signatureWidth || 30;
-
-    // "RESPONSABLE" label on right
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...NAVY);
-    doc.text('RESPONSABLE', PW - M, sigZoneTop + 3, { align: 'right' });
-    const rw = doc.getTextWidth('RESPONSABLE');
-    doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
-    doc.line(PW - M - rw, sigZoneTop + 4, PW - M, sigZoneTop + 4);
+  if (hasSig) {
+    const stampW = company.stampWidth     || 32;
+    const sigW   = company.signatureWidth || 32;
+    const imgY   = sigLabelY + 5;
 
     if (company.stamp) {
       try {
         const opt = await optimizeImage(company.stamp, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW - stampW - 6, sigZoneTop + 6, stampW, stampH2, undefined, 'FAST');
+        doc.addImage(opt.data, opt.format, PW - M - sigW - stampW - 5, imgY, stampW, stampH2, undefined, 'FAST');
       } catch { /* skip */ }
     }
     if (company.signature) {
       try {
         const opt = await optimizeImage(company.signature, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW, sigZoneTop + 6, sigW, sigH, undefined, 'FAST');
+        doc.addImage(opt.data, opt.format, PW - M - sigW, imgY, sigW, sigH, undefined, 'FAST');
       } catch { /* skip */ }
     }
-  } else {
-    doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...NAVY);
-    doc.text('RESPONSABLE', PW - M, sigZoneTop + 3, { align: 'right' });
-    const rw = doc.getTextWidth('RESPONSABLE');
-    doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
-    doc.line(PW - M - rw, sigZoneTop + 4, PW - M, sigZoneTop + 4);
   }
 
-  // ── 9. Footer ─────────────────────────────────────────────────────────────
+  // ── 8. FOOTER — ancré en bas ───────────────────────────────────────────────
+  const footerY = PH - 5 - M - footerBlockH;
 
-  // Services (left, bold italic)
   if (company.services) {
-    const lines = company.services.split('\n').filter(s => s.trim());
-    doc.setFontSize(8); doc.setFont('helvetica', 'bolditalic');
+    const sLines = company.services.split('\n').filter(Boolean);
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bolditalic');
     doc.setTextColor(...NAVY);
-    doc.text(
-      `NOS SERVICES : ${lines.join(', ')}`,
-      M, footerY + 6,
-      { maxWidth: (PW - 2 * M) * 0.55 }
-    );
+    doc.text(`NOS SERVICES : ${sLines.join(', ')}`, M, footerY, { maxWidth: (PW - 2 * M) * 0.65 });
   }
 
-  // Watermark / slogan (bottom left, large italic bold)
-  const slogan = company.watermark || 'COMMUNIQUER LA DIFFÉRENCE';
-  doc.setFontSize(13); doc.setFont('helvetica', 'bolditalic');
+  const sloganY = footerY + svcH + 7;
+  const slogan  = company.watermark || 'COMMUNIQUER LA DIFFÉRENCE';
+  doc.setFontSize(12); doc.setFont('helvetica', 'bolditalic');
   doc.setTextColor(...NAVY);
-  doc.text(slogan, M, footerY + 18);
+  doc.text(slogan, M, sloganY);
 
-  // Company short name bottom right
   doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(80, 80, 80);
-  const shortName = company.name.split(' ')[0];
-  doc.text(shortName, PW - M - 12, footerY + 18);
-
-  // Small empty square bottom-right corner (like the reference)
+  doc.setTextColor(100, 100, 100);
+  doc.text(company.name.split(' ')[0], PW - M - 10, sloganY);
   doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
-  doc.rect(PW - M - 8, footerY + 20, 8, 8);
+  doc.rect(PW - M - 8, sloganY + 2, 8, 8);
 
-  // Dark navy footer band at very bottom
+  // ── 9. BANDE NAVY — collée en bas de la page ──────────────────────────────
   doc.setFillColor(...NAVY);
-  doc.rect(0, PH - 6, PW, 6, 'F');
+  doc.rect(0, PH - 5, PW, 5, 'F');
 
   return doc;
 };
