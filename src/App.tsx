@@ -879,178 +879,207 @@ export default function App() {
         </section>
 
         {/* Preview Pane (Right) */}
-        <section className={`flex-1 bg-app-light-blue/40 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-          {/* The "Paper" Document Container - strictly A4 ratio with better mobile scaling */}
-          <div className="w-full max-w-[580px] h-auto min-h-[820px] bg-white shadow-[0_20px_50px_rgba(10,31,44,0.1)] p-6 sm:p-12 flex flex-col relative overflow-hidden transition-transform duration-300">
-            {/* Watermark */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.035] rotate-[-45deg]">
-              <span className="text-6xl md:text-9xl font-black uppercase font-sans tracking-[0.2em] text-app-navy">
-                {companyInfo.watermark || docType}
-              </span>
+        <section className={`flex-1 bg-slate-200 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+          {/* A4 paper */}
+          <div className="w-full max-w-[560px] h-auto bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ minHeight: '790px' }}>
+
+            {/* Diagonal stripe background */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-[0.045]" aria-hidden="true">
+              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="diag" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+                    <line x1="0" y1="0" x2="0" y2="24" stroke="#0a1f2c" strokeWidth="10"/>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#diag)" />
+              </svg>
             </div>
 
-            {/* Header */}
-            <div className="flex justify-between items-start mb-6">
-              <div className="flex gap-2 sm:gap-4 items-start pr-2">
-                {/* Logo Box */}
-                <div 
-                  className="flex items-start justify-center shrink-0"
-                  style={{
-                    width: companyInfo.logo ? `${(companyInfo.logoWidth || 15) * 3.78}px` : undefined,
-                    height: companyInfo.logo ? `${(companyInfo.logoHeight || 15) * 3.78}px` : undefined
-                  }}
-                >
+            {/* ── HEADER ── */}
+            <div className="relative z-10 px-5 pt-4 pb-2">
+              <div className="flex justify-between items-start">
+                {/* Left: logo + company info */}
+                <div className="flex items-start gap-3">
                   {companyInfo.logo ? (
-                    <img 
-                      src={companyInfo.logo} 
-                      alt="Logo" 
-                      className="w-full h-full object-contain"
+                    <img
+                      src={companyInfo.logo}
+                      alt="Logo"
+                      className="object-contain shrink-0"
                       style={{
-                        maxWidth: `${(companyInfo.logoWidth || 15) * 3.78}px`,
-                        maxHeight: `${(companyInfo.logoHeight || 15) * 3.78}px`
+                        width:  `${(companyInfo.logoWidth  || 15) * 3.2}px`,
+                        height: `${(companyInfo.logoHeight || 15) * 3.2}px`,
                       }}
                     />
                   ) : (
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-app-navy flex items-center justify-center text-white rounded shadow-sm">
-                      <span className="font-sans font-bold text-sm sm:text-lg">{companyInfo.name.charAt(0).toUpperCase()}</span>
+                    <div className="w-9 h-9 bg-app-navy rounded flex items-center justify-center text-white font-bold text-base shrink-0">
+                      {companyInfo.name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                </div>
-                <div className="flex flex-col min-w-0 justify-start">
-                  <h3 className="font-sans font-black text-sm sm:text-lg tracking-tight leading-none text-app-navy uppercase truncate">{companyInfo.name}</h3>
-                  <div className="font-sans text-[7px] sm:text-[9px] text-app-navy/60 font-medium leading-snug mt-1">
-                    <p className="truncate">{companyInfo.address}</p>
-                    <p>{companyInfo.email}</p>
-                    <p>{companyInfo.phone}</p>
+                  <div>
+                    <p className="font-black text-[11px] text-app-navy leading-tight">{companyInfo.name}</p>
+                    <p className="text-[8px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
+                    <p className="text-[8px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
+                    <p className="text-[8px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
+                    {companyInfo.siret && <p className="text-[7px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
                   </div>
                 </div>
-              </div>
-              <div className="text-right border-l border-app-light-blue/20 pl-2 sm:pl-4 shrink-0 flex flex-col items-end gap-1">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-sans font-black text-app-navy tracking-tighter uppercase leading-none">{docType}</h2>
-                {/* Informations légales sous PROFORMA */}
-                {(companyInfo.siret || companyInfo.siren || companyInfo.rcs) && (
-                  <div className="flex flex-col items-end gap-0.5 mt-1">
-                    {companyInfo.siret && (
-                      <span className="text-[7px] text-app-navy/30 font-medium">
-                        SIRET: {companyInfo.siret}
-                      </span>
-                    )}
-                    {companyInfo.siren && (
-                      <span className="text-[7px] text-app-navy/30 font-medium">
-                        SIREN: {companyInfo.siren}
-                      </span>
-                    )}
-                    {companyInfo.rcs && (
-                      <span className="text-[7px] text-app-navy/30 font-medium">
-                        {companyInfo.rcs}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="w-full h-px bg-app-light-blue/30 mb-8" />
-
-            {/* Meta & Client Info */}
-            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6 sm:mb-10">
-              <div className="space-y-1 text-left">
-                <p className="font-sans text-[9px] text-app-navy/40 font-bold uppercase tracking-widest leading-none mb-1">Destinataire:</p>
-                <div className="font-sans text-[11px] text-app-navy leading-tight">
-                  <span className="block font-black text-app-navy mb-0.5">{(client.name || 'NOM DU CLIENT').toUpperCase()}</span>
-                  <span className="font-bold text-app-navy/70">{client.phone || ''}</span>
+                {/* Right: doc type + date */}
+                <div className="text-right shrink-0">
+                  <p className="font-black text-[11px] text-app-navy uppercase leading-tight">
+                    {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
+                  </p>
+                  <p className="text-[8px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
+                  <p className="text-[8px] text-slate-600">Validité :</p>
                 </div>
               </div>
-              <div className="text-left sm:text-right font-sans text-[10px] space-y-1.5 w-full sm:w-auto">
-                <p className="flex justify-between sm:block gap-4"><span className="text-app-navy/30 uppercase font-black tracking-tighter mr-2">N°:</span> <span className="font-black text-app-navy">{proformaNumber}</span></p>
-                <p className="flex justify-between sm:block gap-4"><span className="text-app-navy/30 uppercase font-black tracking-tighter mr-2">Date:</span> <span className="font-black text-app-navy">{format(new Date(proformaDate), 'dd/MM/yyyy')}</span></p>
-              </div>
+              {/* Separator */}
+              <div className="w-full h-[1.5px] bg-app-navy mt-3" />
             </div>
 
-            {/* Items Table */}
-            <div className="flex-1 overflow-x-visible">
-              <table className="w-full border-collapse border border-app-light-blue/20">
+            {/* ── TITLE ── */}
+            <div className="relative z-10 px-5 py-2 text-center">
+              <p className="font-black text-[15px] sm:text-[17px] text-app-navy tracking-tight">
+                {docType === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA'} : {proformaNumber}
+              </p>
+              <div className="w-full h-px bg-slate-300 mt-1" />
+            </div>
+
+            {/* ── CLIENT BAND ── */}
+            <div className="relative z-10 mx-5 mb-3 bg-app-light-blue/60 px-3 py-2">
+              <p className="text-[8px] font-bold text-app-navy leading-none">Facture à</p>
+              <p className="text-[9px] font-black text-app-navy mt-0.5">
+                Client : {(client.name || 'NOM DU CLIENT').toUpperCase()}
+              </p>
+            </div>
+
+            {/* ── TABLE ── */}
+            <div className="relative z-10 px-5 flex-1">
+              <table className="w-full border-collapse text-[8px] sm:text-[9px]">
                 <thead>
-                  <tr className="bg-app-light-blue/50 text-app-navy font-sans text-[8px] sm:text-[9px] uppercase tracking-widest">
-                    <th className="py-2.5 px-4 font-black text-left border-r border-app-navy/10">Description</th>
-                    <th className="py-2.5 px-2 font-black text-center w-8 sm:w-16 border-r border-app-navy/10">Qté</th>
-                    <th className="py-2.5 px-4 text-right font-black w-24 sm:w-32 border-r border-app-navy/10">Prix Unitaire</th>
-                    <th className="py-2.5 px-4 text-right font-black w-28 sm:w-32">Total</th>
+                  <tr className="bg-app-navy text-white">
+                    <th className="py-2 px-3 font-bold text-left border-r border-white/20">Description</th>
+                    <th className="py-2 px-2 font-bold text-center w-14 border-r border-white/20">Quantité</th>
+                    <th className="py-2 px-3 font-bold text-right w-24 border-r border-white/20">Prix unitaire</th>
+                    <th className="py-2 px-3 font-bold text-right w-24">Total</th>
                   </tr>
                 </thead>
-                <tbody className="text-[9px] sm:text-[10px] md:text-[11px] text-app-navy">
+                <tbody>
+                  {/* Real items */}
                   {items.map((item, i) => (
-                    <tr key={i} className="border-b border-app-light-blue/20">
-                      <td className="py-2 px-4 font-bold uppercase truncate max-w-[100px] sm:max-w-none border-r border-app-light-blue/10">{item.description || ''}</td>
-                      <td className="py-2 px-2 text-center font-medium border-r border-app-light-blue/10">{item.quantity}</td>
-                      <td className="py-2 px-4 text-right text-app-navy/60 font-bold border-r border-app-light-blue/10 whitespace-nowrap">{item.unitPrice.toLocaleString()} FCFA</td>
-                      <td className="py-2 px-4 text-right font-black text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} FCFA</td>
+                    <tr key={i} className="border-b border-slate-200">
+                      <td className="py-1.5 px-3 text-app-navy border-r border-slate-200">{item.description || ''}</td>
+                      <td className="py-1.5 px-2 text-center text-app-navy border-r border-slate-200">{item.quantity}</td>
+                      <td className="py-1.5 px-3 text-right text-app-navy/70 border-r border-slate-200 whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
+                      <td className="py-1.5 px-3 text-right font-bold text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
+                    </tr>
+                  ))}
+                  {/* Empty rows to fill table like the reference */}
+                  {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
+                    <tr key={`empty-${i}`} className="border-b border-slate-200">
+                      <td className="py-1.5 px-3 border-r border-slate-200">&nbsp;</td>
+                      <td className="py-1.5 px-2 border-r border-slate-200">&nbsp;</td>
+                      <td className="py-1.5 px-3 border-r border-slate-200">&nbsp;</td>
+                      <td className="py-1.5 px-3">&nbsp;</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* Document Footer (Totals) */}
-            <div className="mt-8 self-end w-full max-w-[320px] space-y-2 mb-6">
-              <div className="flex justify-between items-center text-[10px] px-2">
-                <span className="font-bold text-app-navy/30 uppercase tracking-widest italic">Sous-total</span>
-                <span className="font-bold text-app-navy/60">{subtotal.toLocaleString()} FCFA</span>
+            {/* ── TOTALS ── */}
+            <div className="relative z-10 px-5 mt-2">
+              {/* Sous-total + Remise (right aligned text) */}
+              <div className="text-right text-[8px] text-slate-500 space-y-0.5 mb-1">
+                <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
+                {discountPercent > 0 && (
+                  <p>Remise : {discountAmount.toLocaleString()} F</p>
+                )}
               </div>
-              {discountPercent > 0 && (
-                <div className="flex justify-between items-center text-[10px] px-2">
-                  <span className="font-bold text-app-navy/30 uppercase tracking-widest italic">Réduction ({discountPercent}%)</span>
-                  <span className="font-bold text-red-500">-{discountAmount.toLocaleString()} FCFA</span>
-                </div>
-              )}
-              
-              <div className="bg-app-yellow p-4 rounded-lg flex justify-between items-center shadow-lg shadow-app-yellow/10">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-app-navy italic">Total Général</span>
-                <span className="text-xl font-black text-app-navy tracking-tighter">
-                  {total.toLocaleString()} FCFA
+              {/* Yellow total bar */}
+              <div className="bg-app-yellow flex items-center justify-end px-3 py-2">
+                <span className="font-black text-[10px] sm:text-[11px] text-app-navy">
+                  Total HT : {total.toLocaleString()} F CFA
                 </span>
               </div>
             </div>
 
-            {(companyInfo.signature || companyInfo.stamp) && (
-              <div className="flex justify-end gap-12 px-6 mb-0 mt-8">
-                <div className="text-center">
-                  {companyInfo.stamp && (
-                    <img src={companyInfo.stamp} alt="Stamp" className="h-24 object-contain mix-blend-multiply opacity-80" />
-                  )}
-                </div>
-                <div className="text-center">
-                  {companyInfo.signature && (
-                    <img src={companyInfo.signature} alt="Signature" className="h-24 object-contain mix-blend-multiply" />
-                  )}
-                </div>
-              </div>
-            )}
+            {/* ── AMOUNT IN WORDS ── */}
+            <div className="relative z-10 px-5 mt-2">
+              <p className="text-[7.5px] italic text-slate-600">
+                Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
+                  (() => {
+                    const n = Math.round(total);
+                    if (n === 0) return 'ZÉRO';
+                    const u = ['','UN','DEUX','TROIS','QUATRE','CINQ','SIX','SEPT','HUIT','NEUF','DIX','ONZE','DOUZE','TREIZE','QUATORZE','QUINZE','SEIZE','DIX-SEPT','DIX-HUIT','DIX-NEUF'];
+                    const t = ['','','VINGT','TRENTE','QUARANTE','CINQUANTE','SOIXANTE','SOIXANTE','QUATRE-VINGT','QUATRE-VINGT'];
+                    const b100 = (x: number): string => {
+                      if (x < 20) return u[x];
+                      const d = Math.floor(x/10), r = x%10;
+                      if (d===7) return r===1?'SOIXANTE ET ONZE':`SOIXANTE-${u[10+r]}`;
+                      if (d===9) return r===0?'QUATRE-VINGT-DIX':`QUATRE-VINGT-${u[10+r]}`;
+                      return r===0?t[d]:r===1&&d!==8?`${t[d]} ET UN`:`${t[d]}-${u[r]}`;
+                    };
+                    const b1000 = (x: number): string => {
+                      if (x<100) return b100(x);
+                      const h=Math.floor(x/100), r=x%100;
+                      return r===0?(h===1?'CENT':`${u[h]} CENT`):(h===1?`CENT ${b100(r)}`:`${u[h]} CENT ${b100(r)}`);
+                    };
+                    let s='';
+                    const M2=Math.floor(n/1000000), K=Math.floor((n%1000000)/1000), R=n%1000;
+                    if(M2>0) s+=M2===1?'UN MILLION ':`${b1000(M2)} MILLIONS `;
+                    if(K>0) s+=K===1?'MILLE ':`${b1000(K)} MILLE `;
+                    if(R>0) s+=b1000(R);
+                    return s.trim();
+                  })()
+                }</span>
+              </p>
+            </div>
 
-            <div className="mt-auto pt-0">
-              {/* Footer band */}
-              <div className="border-t-2 border-app-light-blue/30 bg-app-light-blue/10 px-4 py-3 flex flex-col items-center justify-center gap-1.5 min-h-[52px]">
-                {/* Services */}
-                {companyInfo.services ? (
-                  <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-1">
-                    {companyInfo.services.split('\n').filter(s => s.trim()).map((service, idx, arr) => (
-                      <div key={idx} className="flex items-center gap-3">
-                        <span className="text-[8px] sm:text-[9px] text-app-navy/50 font-black uppercase tracking-widest text-center leading-tight">
-                          {service.trim()}
-                        </span>
-                        {idx < arr.length - 1 && (
-                          <span className="text-[9px] text-app-navy/20 font-light">|</span>
-                        )}
-                      </div>
-                    ))}
+            {/* ── SIGNATURE ZONE ── */}
+            <div className="relative z-10 px-5 mt-2 flex justify-between items-end min-h-[60px]">
+              {/* Services (left) */}
+              <div className="text-[7.5px] text-app-navy max-w-[55%]">
+                {companyInfo.services && (
+                  <p className="font-bold leading-snug">
+                    NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
+                  </p>
+                )}
+              </div>
+              {/* Responsable + images (right) */}
+              <div className="text-right">
+                <p className="text-[8px] font-black text-app-navy underline mb-1">RESPONSABLE</p>
+                {(companyInfo.stamp || companyInfo.signature) && (
+                  <div className="flex items-end justify-end gap-3">
+                    {companyInfo.stamp && (
+                      <img src={companyInfo.stamp} alt="Cachet"
+                        className="object-contain mix-blend-multiply opacity-80"
+                        style={{ height: `${(companyInfo.stampHeight || 22) * 3.2}px` }} />
+                    )}
+                    {companyInfo.signature && (
+                      <img src={companyInfo.signature} alt="Signature"
+                        className="object-contain mix-blend-multiply"
+                        style={{ height: `${(companyInfo.signatureHeight || 22) * 3.2}px` }} />
+                    )}
                   </div>
-                ) : (
-                  <span className="text-[8px] sm:text-[9px] text-app-navy/40 font-bold uppercase tracking-widest italic text-center leading-tight">
-                    Offre valable pendant 30 jours à compter de la date d'émission
-                  </span>
                 )}
               </div>
             </div>
+
+            {/* ── FOOTER ── */}
+            <div className="relative z-10 px-5 mt-2 pb-1 flex justify-between items-end">
+              {/* Slogan */}
+              <p className="font-black italic text-[11px] sm:text-[13px] text-app-navy leading-tight max-w-[60%]">
+                {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
+              </p>
+              {/* Short name + small square */}
+              <div className="flex items-end gap-2">
+                <p className="text-[8px] text-slate-500">{companyInfo.name.split(' ')[0]}</p>
+                <div className="w-5 h-5 border border-slate-300" />
+              </div>
+            </div>
+
+            {/* Navy bottom band */}
+            <div className="relative z-10 w-full h-3 bg-app-navy mt-1" />
           </div>
         </section>
       </main>
