@@ -246,7 +246,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // ── 7. Amount in words ────────────────────────────────────────────────────
   const words = numberToWords(Math.round(totalHT));
-  doc.setFontSize(8); doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9); doc.setFont('helvetica', 'italic');
   doc.setTextColor(60, 60, 60);
   doc.text(
     `Arrêtée la présente facture à la somme de : ${words}`,

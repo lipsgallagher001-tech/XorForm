@@ -995,7 +995,7 @@ export default function App() {
 
             {/* ── AMOUNT IN WORDS ── */}
             <div className="relative z-10 px-10 mt-2">
-              <p className="text-[7.5px] italic text-slate-600">
+              <p className="text-[9px] italic text-slate-600">
                 Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
                   (() => {
                     const n = Math.round(total);
