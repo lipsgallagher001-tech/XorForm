@@ -591,7 +591,7 @@ export default function App() {
     setItems(proformaToLoad.items);
     setDiscountPercent(proformaToLoad.discountPercent || 0);
     setProformaNumber(proformaToLoad.number);
-    setProformaDate(proformaToLoad.date);
+    setProformaDate(new Date(proformaToLoad.date).toISOString());
     setShowHistory(false);
   };
 
@@ -925,7 +925,7 @@ export default function App() {
           <div className="w-full max-w-[600px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ aspectRatio: '1 / 1.4142' }}>
 
             {/* ── HEADER ── */}
-            <div className="relative z-10 px-8 pt-7 pb-2 shrink-0">
+            <div className="relative z-10 pb-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingTop: '6.73%' }}>
               <div className="flex justify-between items-start">
                 {/* Left: logo + company info */}
                 <div className="flex items-start gap-3">
@@ -945,45 +945,43 @@ export default function App() {
                     </div>
                   )}
                   <div>
-                    <p className="font-black text-[12px] text-app-navy leading-tight">{companyInfo.name}</p>
-                    <p className="text-[9px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
-                    <p className="text-[9px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
-                    <p className="text-[9px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
-                    {companyInfo.siret && <p className="text-[8px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
+                    <p className="font-black text-[14px] text-app-navy leading-tight">{companyInfo.name}</p>
+                    <p className="text-[10.5px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
+                    <p className="text-[10.5px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
+                    <p className="text-[10.5px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
+                    {companyInfo.siret && <p className="text-[9px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
                   </div>
                 </div>
                 {/* Right: doc type + date */}
                 <div className="text-right shrink-0">
-                  <p className="font-black text-[12px] text-app-navy uppercase leading-tight">
+                  <p className="font-black text-[14px] text-app-navy uppercase leading-tight">
                     {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
                   </p>
-                  <p className="text-[9px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
-                  <p className="text-[9px] text-slate-600">Validité :</p>
+                  <p className="text-[10.5px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
                 </div>
               </div>
               {/* Separator */}
-              <div className="w-full h-[1.5px] bg-app-navy mt-3" />
+              <div className="w-full h-px bg-app-navy/30 mt-3" />
             </div>
 
             {/* ── TITLE ── */}
-            <div className="relative z-10 px-8 py-2 text-center shrink-0">
-              <p className="font-black text-[15px] text-app-navy tracking-tight">
+            <div className="relative z-10 py-2 text-center shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <p className="font-black text-[17px] text-app-navy tracking-tight">
                 {docType === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA'} : {proformaNumber}
               </p>
-              <div className="w-full h-px bg-slate-300 mt-1" />
             </div>
 
             {/* ── CLIENT BAND ── */}
-            <div className="relative z-10 mx-8 mb-2 bg-app-light-blue/60 px-3 py-2 shrink-0">
-              <p className="text-[8.5px] font-bold text-app-navy leading-none">Facture à</p>
-              <p className="text-[10px] font-black text-app-navy mt-0.5">
+            <div className="relative z-10 mb-2 bg-app-light-blue/60 px-3 py-2 shrink-0" style={{ marginLeft: '9.52%', marginRight: '9.52%' }}>
+              <p className="text-[10px] font-bold text-app-navy leading-none">Facture à</p>
+              <p className="text-[12px] font-black text-app-navy mt-0.5">
                 Client : {(client.name || 'NOM DU CLIENT').toUpperCase()}
               </p>
             </div>
 
             {/* ── TABLE — flex-1 pour occuper l'espace disponible ── */}
-            <div className="relative z-10 px-8 flex-1 overflow-hidden">
-              <table className="w-full border-collapse text-[8.5px]">
+            <div className="relative z-10 flex-1 overflow-hidden" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <table className="w-full border-collapse text-[10px]">
                 <thead>
                   <tr className="bg-app-navy text-white">
                     <th className="py-2 px-2.5 font-bold text-left border-r border-white/20">Description</th>
@@ -1014,23 +1012,23 @@ export default function App() {
             </div>
 
             {/* ── TOTALS ── */}
-            <div className="relative z-10 px-8 mt-2 shrink-0">
-              <div className="text-right text-[8.5px] text-slate-500 space-y-0.5">
+            <div className="relative z-10 mt-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <div className="text-right text-[10px] text-slate-500 space-y-0.5">
                 <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
                 {discountPercent > 0 && (
                   <p>Remise : {discountAmount.toLocaleString()} F</p>
                 )}
               </div>
               <div className="bg-app-yellow flex items-center justify-end px-3 py-2">
-                <span className="font-black text-[11px] text-app-navy">
+                <span className="font-black text-[13px] text-app-navy">
                   Total HT : {total.toLocaleString()} F CFA
                 </span>
               </div>
             </div>
 
             {/* ── AMOUNT IN WORDS ── */}
-            <div className="relative z-10 px-8 mt-2 shrink-0">
-              <p className="text-[8.5px] italic text-slate-600">
+            <div className="relative z-10 mt-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <p className="text-[10px] italic text-slate-600">
                 Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
                   (() => {
                     const n = Math.round(total);
@@ -1061,9 +1059,8 @@ export default function App() {
             </div>
 
             {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 px-8 mt-3 flex justify-end items-end shrink-0">
+            <div className="relative z-10 mt-3 flex justify-end items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
               <div className="text-right flex flex-col items-end">
-                <p className="text-[8.5px] font-black text-app-navy underline mb-1">RESPONSABLE</p>
                 {(companyInfo.stamp || companyInfo.signature) && (
                   <div className="flex items-end justify-end gap-3">
                     {companyInfo.stamp && (
@@ -1082,20 +1079,13 @@ export default function App() {
             </div>
 
             {/* ── FOOTER ── */}
-            <div className="relative z-10 px-8 mt-3 pb-3 flex justify-between items-end shrink-0">
-              <div className="max-w-[62%]">
+            <div className="relative z-10 mt-3 flex justify-center items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingBottom: '6.73%' }}>
+              <div className="text-center">
                 {companyInfo.services && (
-                  <p className="text-[8px] font-bold text-app-navy leading-snug mb-1.5">
+                  <p className="text-[9.5px] font-bold text-app-navy leading-snug">
                     NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
                   </p>
                 )}
-                <p className="font-black italic text-[12px] text-app-navy leading-tight">
-                  {companyInfo.watermark || 'COMMUNIQUER LA DIFFÉRENCE'}
-                </p>
-              </div>
-              <div className="flex items-end gap-2">
-                <p className="text-[8px] text-slate-500">{companyInfo.name.split(' ')[0]}</p>
-                <div className="w-5 h-5 border border-slate-300" />
               </div>
             </div>
 

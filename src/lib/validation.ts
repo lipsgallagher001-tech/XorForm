@@ -40,7 +40,10 @@ export const ProformaSchema = z.object({
     errorMap: () => ({ message: "Type doit être PROFORMA ou FACTURE" })
   }),
   number: z.string().min(1, "Numéro de document requis"),
-  date: z.string().datetime("Format de date invalide"),
+  date: z.string().refine(
+    (val) => !isNaN(new Date(val).getTime()),
+    "Format de date invalide"
+  ),
   client: ClientInfoSchema,
   items: z.array(ProformaItemSchema)
     .min(1, "Au moins un article est requis")

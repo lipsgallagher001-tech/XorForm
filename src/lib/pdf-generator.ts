@@ -78,7 +78,7 @@ const WHITE  = [255, 255, 255] as const;
 // ─── générateur ──────────────────────────────────────────────────────────────
 
 const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Promise<jsPDF> => {
-  const M  = 15; // marges gauche/droite/haut en mm (réduit pour plus d'espace)
+  const M  = 20; // marges gauche/droite/haut en mm (2 cm)
   const PW = 210;
   const PH = 297;
 
@@ -125,52 +125,47 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // Infos entreprise
   const infoX = M + logoW + 5;
   doc.setTextColor(...NAVY);
-  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
   doc.text(company.name, infoX, y + 5);
 
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
   doc.setTextColor(100, 100, 100);
   const infoLines: string[] = [company.address, company.phone, company.email];
   if (company.siret) infoLines.push(`SIRET: ${company.siret}`);
-  infoLines.forEach((line, i) => doc.text(line, infoX, y + 11 + i * 4.2));
+  infoLines.forEach((line, i) => doc.text(line, infoX, y + 12 + i * 4.8));
 
   // Droite
   doc.setTextColor(...NAVY);
-  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
   doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 5, { align: 'right' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
   doc.setTextColor(80, 80, 80);
-  doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 11, { align: 'right' });
-  doc.text('Validité :', PW - M, y + 16, { align: 'right' });
+  doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 12, { align: 'right' });
 
   y += Math.max(logoH, 24) + 5;
-  doc.setDrawColor(...NAVY); doc.setLineWidth(0.7);
+  doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
   doc.line(M, y, PW - M, y);
-  y += 6;
+  y += 12;
 
   // ── 2. TITRE ───────────────────────────────────────────────────────────────
-  doc.setFontSize(16); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...NAVY);
   const label = proforma.type === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA';
   doc.text(`${label} : ${proforma.number}`, PW / 2, y, { align: 'center' });
-  const titleW = doc.getTextWidth(`${label} : ${proforma.number}`);
-  y += 2;
-  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.4);
-  doc.line(PW / 2 - titleW / 2, y, PW / 2 + titleW / 2, y);
-  y += 7;
+  y += 10;
 
   // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
-  const clientH = 14;
+  const clientH = 16;
   doc.setFillColor(...LBLUE);
   doc.rect(M, y, PW - 2 * M, clientH, 'F');
   doc.setTextColor(...NAVY);
-  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-  doc.text('Facture à', M + 3, y + 5);
-  doc.setFontSize(9.5);
-  doc.text(`Client : ${proforma.client.name.toUpperCase()}`, M + 3, y + 11);
+  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
+  doc.text('Facture à', M + 3, y + 5.5);
+  doc.setFontSize(11);
+  doc.text(`Client : ${proforma.client.name.toUpperCase()}`, M + 3, y + 12);
   if (proforma.client.phone) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-    doc.text(proforma.client.phone, PW - M - 3, y + 11, { align: 'right' });
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+    doc.text(proforma.client.phone, PW - M - 3, y + 12, { align: 'right' });
   }
   y += clientH + 5;
 
@@ -200,16 +195,16 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     headStyles: {
       fillColor: [...NAVY] as [number, number, number],
       textColor: [...WHITE] as [number, number, number],
-      fontSize: 9,
+      fontSize: 10,
       fontStyle: 'bold',
       halign: 'left',
-      cellPadding: 3,
+      cellPadding: 3.5,
       lineColor: [...NAVY] as [number, number, number],
       lineWidth: 0.1,
     },
     styles: {
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: 10,
+      cellPadding: 3.5,
       textColor: [...NAVY] as [number, number, number],
       lineColor: [210, 210, 210],
       lineWidth: 0.1,
@@ -217,9 +212,9 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     },
     columnStyles: {
       0: { cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 24 },
-      2: { halign: 'right',  cellWidth: 34 },
-      3: { halign: 'right',  cellWidth: 34, fontStyle: 'bold' },
+      1: { halign: 'center', cellWidth: 25 },
+      2: { halign: 'right',  cellWidth: 36 },
+      3: { halign: 'right',  cellWidth: 36, fontStyle: 'bold' },
     },
   });
 
@@ -231,28 +226,28 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const discountAmt = (subtotal * (proforma.discountPercent || 0)) / 100;
   const totalHT     = subtotal - discountAmt;
 
-  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
   doc.setTextColor(100, 100, 100);
   doc.text(`Sous-total : ${fmtCur(subtotal)} CFA`, PW - M, y, { align: 'right' });
-  y += 5;
+  y += 5.5;
 
   if ((proforma.discountPercent || 0) > 0) {
     doc.text(`Remise : ${fmtCur(discountAmt)} F`, PW - M, y, { align: 'right' });
-    y += 5;
+    y += 5.5;
   }
 
-  const barH = 11;
+  const barH = 12;
   doc.setFillColor(...YELLOW);
   doc.rect(M, y, PW - 2 * M, barH, 'F');
   doc.setTextColor(...NAVY);
-  doc.setFontSize(10.5); doc.setFont('helvetica', 'bold');
-  doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, y + 7.5, { align: 'right' });
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+  doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, y + 8.5, { align: 'right' });
   y += barH + 5;
 
   // ── 6. MONTANT EN LETTRES ──────────────────────────────────────────────────
   const words = numberToWords(Math.round(totalHT));
   const wordsText = `Arrêtée la présente facture à la somme de : ${words}`;
-  doc.setFontSize(8.5); doc.setFont('helvetica', 'italic');
+  doc.setFontSize(9.5); doc.setFont('helvetica', 'italic');
   doc.setTextColor(80, 80, 80);
   const fullLines = doc.splitTextToSize(wordsText, PW - 2 * M);
   doc.text(fullLines, M, y);
@@ -261,13 +256,6 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // ── 7. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
   // Y de la zone signature = PH - bottomReserved + offset
   const sigLabelY = PH - 5 - M - footerBlockH - sigBlockH - 8;
-
-  doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...NAVY);
-  doc.text('RESPONSABLE', PW - M, sigLabelY, { align: 'right' });
-  const labelW = doc.getTextWidth('RESPONSABLE');
-  doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
-  doc.line(PW - M - labelW, sigLabelY + 1.5, PW - M, sigLabelY + 1.5);
 
   if (hasSig) {
     const stampW = company.stampWidth     || 32;
@@ -293,24 +281,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   if (company.services) {
     const sLines = company.services.split('\n').filter(Boolean);
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bolditalic');
+    doc.setFontSize(10); doc.setFont('helvetica', 'bolditalic');
     doc.setTextColor(...NAVY);
-    doc.text(`NOS SERVICES : ${sLines.join(', ')}`, M, footerY, { maxWidth: (PW - 2 * M) * 0.65 });
+    doc.text(`NOS SERVICES : ${sLines.join(', ')}`, PW / 2, footerY, {
+      align: 'center',
+      maxWidth: PW - 2 * M
+    });
   }
 
-  const sloganY = footerY + svcH + 7;
-  const slogan  = company.watermark || 'COMMUNIQUER LA DIFFÉRENCE';
-  doc.setFontSize(12); doc.setFont('helvetica', 'bolditalic');
-  doc.setTextColor(...NAVY);
-  doc.text(slogan, M, sloganY);
-
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text(company.name.split(' ')[0], PW - M - 10, sloganY);
-  doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3);
-  doc.rect(PW - M - 8, sloganY + 2, 8, 8);
-
-  // ── 9. BANDE NAVY — collée en bas de la page ──────────────────────────────
   doc.setFillColor(...NAVY);
   doc.rect(0, PH - 5, PW, 5, 'F');
 
