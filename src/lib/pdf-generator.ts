@@ -5,11 +5,27 @@ import { Proforma, CompanyInfo } from '../types';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
+const cleanText = (str: string): string => {
+  if (!str) return '';
+  return str
+    .replace(/[\u202f\u00a0]/g, ' ') // Remplacer tous les espaces insécables par des espaces ordinaires
+    .replace(/[éèêë]/g, 'e')
+    .replace(/[ÉÈÊË]/g, 'E')
+    .replace(/[àâä]/g, 'a')
+    .replace(/[ÀÂÄ]/g, 'A')
+    .replace(/[ôöó]/g, 'o')
+    .replace(/[ÔÖÓ]/g, 'O')
+    .replace(/[ùûü]/g, 'u')
+    .replace(/[ÙÛÜ]/g, 'U')
+    .replace(/[ç]/g, 'c')
+    .replace(/[Ç]/g, 'C');
+};
+
 const fmtCur = (val: number) =>
-  `${val.toLocaleString('fr-FR').replace(/\s/g, '\u00a0')}\u00a0F`;
+  `${val.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`;
 
 const numberToWords = (n: number): string => {
-  if (n === 0) return 'ZÉRO';
+  if (n === 0) return 'ZERO';
   const units = ['', 'UN', 'DEUX', 'TROIS', 'QUATRE', 'CINQ', 'SIX', 'SEPT', 'HUIT', 'NEUF',
     'DIX', 'ONZE', 'DOUZE', 'TREIZE', 'QUATORZE', 'QUINZE', 'SEIZE', 'DIX-SEPT', 'DIX-HUIT', 'DIX-NEUF'];
   const tens = ['', '', 'VINGT', 'TRENTE', 'QUARANTE', 'CINQUANTE', 'SOIXANTE',
@@ -143,35 +159,35 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
       doc.setTextColor(...WHITE);
       doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-      doc.text(company.name.charAt(0).toUpperCase(), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
+      doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
     }
   } else {
     doc.setFillColor(...PRIMARY);
     doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
     doc.setTextColor(...WHITE);
     doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-    doc.text(company.name.charAt(0).toUpperCase(), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
+    doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
   }
 
   // Infos entreprise
   const infoX = M + logoW + 5;
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(company.name, infoX, y + 4);
+  doc.text(cleanText(company.name), infoX, y + 4);
 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.setTextColor(100, 116, 139); // slate-400 (#94A3B8 / slate-500)
   const infoLines: string[] = [company.address, company.phone, company.email];
   if (company.siret) infoLines.push(`SIRET: ${company.siret}`);
-  infoLines.forEach((line, i) => doc.text(line, infoX, y + 10 + i * 4.5));
+  infoLines.forEach((line, i) => doc.text(cleanText(line), infoX, y + 10 + i * 4.5));
 
   // Droite (Type de document et date)
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-  doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 4, { align: 'right' });
+  doc.text(cleanText(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'), PW - M, y + 4, { align: 'right' });
   doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text(`DATE : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 10, { align: 'right' });
+  doc.text(cleanText(`DATE : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`), PW - M, y + 10, { align: 'right' });
 
   y += Math.max(logoH, 24) + 4;
   doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2); // border-border
@@ -182,7 +198,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.setFontSize(15); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PRIMARY);
   const label = proforma.type === 'FACTURE' ? 'FACTURE N°' : 'PRO-FORMA N°';
-  doc.text(`${label} ${proforma.number}`, PW / 2, y, { align: 'center' });
+  doc.text(cleanText(`${label} ${proforma.number}`), PW / 2, y, { align: 'center' });
   y += 8;
 
   // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
@@ -196,16 +212,16 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
   doc.setFontSize(8); doc.setFont('helvetica', 'bold');
-  doc.text('CLIENT FACTURÉ', M + 4, y + 4.5);
+  doc.text(cleanText('CLIENT FACTURÉ'), M + 4, y + 4.5);
 
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold');
-  doc.text(proforma.client.name.toUpperCase(), M + 4, y + 10);
+  doc.text(cleanText(proforma.client.name.toUpperCase()), M + 4, y + 10);
 
   if (hasPhone) {
     doc.setTextColor(148, 163, 184); // #94A3B8
     doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
-    doc.text(`TÉL : ${proforma.client.phone}`, M + 4, y + 15);
+    doc.text(cleanText(`TÉL : ${proforma.client.phone}`), M + 4, y + 15);
   }
   y += clientH + 5;
 
@@ -218,10 +234,10 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const maxRows  = Math.max(MIN_ROWS, Math.floor((availForTable - HEAD_H) / ROW_H));
 
   const tableData = proforma.items.map(item => [
-    item.description || 'Sans description',
+    cleanText(item.description || 'Sans description'),
     item.quantity.toString(),
-    `${item.unitPrice.toLocaleString('fr-FR')} F`,
-    `${(item.quantity * item.unitPrice).toLocaleString('fr-FR')} F`
+    cleanText(`${item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`),
+    cleanText(`${(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`)
   ]);
   while (tableData.length < maxRows) tableData.push(['', '', '', '']);
 
@@ -266,12 +282,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   doc.setFontSize(9.5); doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
-  doc.text(`Sous-total : ${subtotal.toLocaleString('fr-FR')} F CFA`, PW - M, y, { align: 'right' });
+  const formattedSubtotal = subtotal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+  doc.text(cleanText(`Sous-total : ${formattedSubtotal} F CFA`), PW - M, y, { align: 'right' });
   y += 5.5;
 
   if ((proforma.discountPercent || 0) > 0) {
     doc.setTextColor(239, 68, 68); // #EF4444 (destructive red)
-    doc.text(`Remise (${proforma.discountPercent}%) : -${discountAmt.toLocaleString('fr-FR')} F CFA`, PW - M, y, { align: 'right' });
+    const formattedDiscount = discountAmt.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+    doc.text(cleanText(`Remise (${proforma.discountPercent}%) : -${formattedDiscount} F CFA`), PW - M, y, { align: 'right' });
     y += 5.5;
   }
 
@@ -280,15 +298,16 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.roundedRect(M, y, PW - 2 * M, barH, 6, 6, 'F'); // Coins arrondis pour l'encadré du total (style pilule)
   doc.setTextColor(...WHITE);
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-  doc.text(`TOTAL NET : ${totalHT.toLocaleString('fr-FR')} F CFA`, PW - M - 4, y + 7.8, { align: 'right' });
+  const formattedTotal = totalHT.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+  doc.text(cleanText(`TOTAL NET : ${formattedTotal} F CFA`), PW - M - 4, y + 7.8, { align: 'right' });
   y += barH + 5;
 
   // ── 6. MONTANT EN LETTRES ──────────────────────────────────────────────────
   const words = numberToWords(Math.round(totalHT));
-  const wordsText = `Arrêtée la présente facture à la somme de : ${words} FRANCS CFA`;
+  const wordsText = `Arretee la presente facture a la somme de : ${words} FRANCS CFA`;
   doc.setFontSize(9.2); doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 116, 139); // slate-500
-  const fullLines = doc.splitTextToSize(wordsText, PW - 2 * M);
+  const fullLines = doc.splitTextToSize(cleanText(wordsText), PW - 2 * M);
   doc.text(fullLines, M, y);
   y += fullLines.length * 4.8 + 3;
 
@@ -345,7 +364,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     const sLines = company.services.split('\n').filter(Boolean);
     doc.setFontSize(9.5); doc.setFont('helvetica', 'bold');
     doc.setTextColor(...PRIMARY);
-    doc.text(`SERVICES : ${sLines.join(', ')}`, PW / 2, footerY, {
+    doc.text(cleanText(`SERVICES : ${sLines.join(', ')}`), PW / 2, footerY, {
       align: 'center',
       maxWidth: PW - 2 * M
     });
