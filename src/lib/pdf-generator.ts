@@ -192,7 +192,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
   doc.setFillColor(248, 250, 252); // #F8FAFC (slate-50/50)
   doc.setLineWidth(0.15);
-  doc.roundedRect(M, y, PW - 2 * M, clientH, 2.5, 2.5, 'FD'); // Coins arrondis avec bordure et remplissage
+  doc.roundedRect(M, y, PW - 2 * M, clientH, 4.5, 4.5, 'FD'); // Coins arrondis avec bordure et remplissage
 
   doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
   doc.setFontSize(8); doc.setFont('helvetica', 'bold');
@@ -277,7 +277,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   const barH = 12;
   doc.setFillColor(...ACCENT);
-  doc.roundedRect(M, y, PW - 2 * M, barH, 2.5, 2.5, 'F'); // Coins arrondis pour l'encadré du total
+  doc.roundedRect(M, y, PW - 2 * M, barH, 6, 6, 'F'); // Coins arrondis pour l'encadré du total (style pilule)
   doc.setTextColor(...WHITE);
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
   doc.text(`TOTAL NET : ${totalHT.toLocaleString('fr-FR')} F CFA`, PW - M - 4, y + 7.8, { align: 'right' });
@@ -320,7 +320,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
     doc.setFillColor(248, 250, 252); // #F8FAFC
     doc.setLineWidth(0.15);
-    doc.roundedRect(boxX, boxY, boxW, boxH, 2.5, 2.5, 'FD'); // FD = Fill & Draw
+    doc.roundedRect(boxX, boxY, boxW, boxH, 4.5, 4.5, 'FD'); // FD = Fill & Draw
 
     if (company.stamp) {
       try {
