@@ -61,6 +61,19 @@ export default function App() {
           if (settings) setCompanyInfo(settings);
           setHistory(proformas);
           console.log('✅ Données chargées:', { hasSettings: !!settings, proformas: proformas.length });
+
+          // ⚡ Précharger les images de l'entreprise (logo, signature, cachet) en arrière-plan
+          loadCompanyImages(userId).then(images => {
+            if (images && settings) {
+              setCompanyInfo(prev => ({
+                ...prev,
+                logo: images.logo,
+                signature: images.signature,
+                stamp: images.stamp
+              }));
+              console.log('✅ Images de l\'entreprise préchargées en arrière-plan');
+            }
+          }).catch(err => console.warn('Erreur préchargement images:', err));
         })
         .catch((loadError) => {
           console.error('❌ Erreur chargement données:', loadError);
@@ -215,6 +228,19 @@ export default function App() {
   // Surveiller les changements d'authentification
   useEffect(() => {
     console.log('État d\'authentification changé:', isAuthenticated);
+  }, [isAuthenticated]);
+
+  // Précharger le générateur de PDF (jsPDF) en arrière-plan dès la connexion
+  useEffect(() => {
+    if (isAuthenticated) {
+      const timer = setTimeout(() => {
+        console.log('⚡ Préchargement du générateur de PDF en arrière-plan...');
+        import('./lib/pdf-generator').catch(err => 
+          console.warn('Erreur préchargement PDF:', err)
+        );
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
   }, [isAuthenticated]);
 
   // Raccourcis clavier globaux (productivité Desktop)
