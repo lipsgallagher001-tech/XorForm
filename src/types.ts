@@ -48,3 +48,10 @@ export interface Proforma {
   total: number;
   notes?: string;
 }
+
+export const DEFAULT_COMPANY: CompanyInfo = {
+  name: "Mon Entreprise",
+  address: "123 Rue du Commerce, Paris",
+  email: "contact@entreprise.fr",
+  phone: "01 23 45 67 89"
+};
