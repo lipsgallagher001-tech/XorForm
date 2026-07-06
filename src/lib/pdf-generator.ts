@@ -86,14 +86,12 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const sigH    = company.signatureHeight|| 25;
   const maxImgH = Math.max(stampH2, sigH);
   const hasSig  = !!(company.signature || company.stamp);
-  const svcH    = company.services ? 8 : 0;
 
   // ── Zones ancrées depuis le bas ────────────────────────────────────────────
-  // bande navy (5) + marge bas (15) + footer: slogan(10) + services(svcH) + sig + label(8)
-  const sigBlockH  = hasSig ? maxImgH + 8 : 0;
-  const footerBlockH = svcH + 10;          // services + slogan
-  const bottomReserved = 5 + M + footerBlockH + sigBlockH + 8 + 6;
-  //                      navy  marge  footer         sig      label+gap  gap
+  // Espace réservé en bas (bande navy 5 + marge bas 5 + services 10 + signature maxImgH + marge de sécurité 12)
+  const footerBlockH = company.services ? 10 : 0;
+  const sigBlockH = hasSig ? maxImgH + 5 : 0;
+  const bottomReserved = 5 + 5 + footerBlockH + sigBlockH + 12;
 
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
@@ -171,7 +169,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // ── 4. TABLEAU ─────────────────────────────────────────────────────────────
   // Calcul de l'espace disponible pour le tableau
-  const totalsH  = 30;  // sous-total + barre jaune + lettres
+  const totalsH  = 40;  // sous-total + barre jaune + lettres (marge de securite)
   const availForTable = PH - y - totalsH - bottomReserved;
   const ROW_H    = 9.0;
   const HEAD_H   = 11;
@@ -254,13 +252,15 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   y += fullLines.length * 5 + 3;
 
   // ── 7. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
-  // Y de la zone signature = PH - bottomReserved + offset
-  const sigLabelY = PH - 5 - M - footerBlockH - sigBlockH - 8;
+  const footerY = PH - 5 - 10; // Placer les services à 15 mm du bas physique (juste au-dessus de la bande navy)
+  const sigLabelY = company.services 
+    ? footerY - maxImgH - 6
+    : PH - 5 - 10 - maxImgH - 4;
 
   if (hasSig) {
     const stampW = company.stampWidth     || 32;
     const sigW   = company.signatureWidth || 32;
-    const imgY   = sigLabelY + 5;
+    const imgY   = sigLabelY + 2;
 
     if (company.stamp) {
       try {
@@ -277,8 +277,6 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   }
 
   // ── 8. FOOTER — ancré en bas ───────────────────────────────────────────────
-  const footerY = PH - 5 - M - footerBlockH;
-
   if (company.services) {
     const sLines = company.services.split('\n').filter(Boolean);
     doc.setFontSize(10); doc.setFont('helvetica', 'bolditalic');
