@@ -33,8 +33,10 @@ import {
   loadCompanyImages,
   loadProformas,
   loadProformaDetails,
-  saveProforma as saveProformaToSupabase
+  saveProforma as saveProformaToSupabase,
+  saveCompanySettings
 } from './lib/supabase-helpers';
+import { optimizeImageClient } from './lib/image-optimizer';
 import { validateProforma } from './lib/validation';
 import { formatValidationErrors } from './lib/errors';
 
@@ -63,15 +65,63 @@ export default function App() {
           console.log('✅ Données chargées:', { hasSettings: !!settings, proformas: proformas.length });
 
           // ⚡ Précharger les images de l'entreprise (logo, signature, cachet) en arrière-plan
-          loadCompanyImages(userId).then(images => {
+          // avec auto-optimisation transparente si les images stockées sont trop lourdes
+          loadCompanyImages(userId).then(async (images) => {
             if (images && settings) {
-              setCompanyInfo(prev => ({
-                ...prev,
-                logo: images.logo,
-                signature: images.signature,
-                stamp: images.stamp
-              }));
-              console.log('✅ Images de l\'entreprise préchargées en arrière-plan');
+              let logo = images.logo;
+              let signature = images.signature;
+              let stamp = images.stamp;
+              let needsUpdate = false;
+
+
+              if (logo && logo.length > 200000) {
+                try {
+                  console.log('⚡ Auto-optimisation du logo lourd (> 150 Ko) en arrière-plan...');
+                  const opt = await optimizeImageClient(logo, 800, 800, 0.8);
+                  logo = opt.data;
+                  needsUpdate = true;
+                } catch (e) {
+                  console.warn('Échec auto-optimisation logo:', e);
+                }
+              }
+
+              if (signature && signature.length > 150000) {
+                try {
+                  console.log('⚡ Auto-optimisation de la signature lourde (> 110 Ko) en arrière-plan...');
+                  const opt = await optimizeImageClient(signature, 400, 400, 0.8);
+                  signature = opt.data;
+                  needsUpdate = true;
+                } catch (e) {
+                  console.warn('Échec auto-optimisation signature:', e);
+                }
+              }
+
+              if (stamp && stamp.length > 150000) {
+                try {
+                  console.log('⚡ Auto-optimisation du cachet lourd (> 110 Ko) en arrière-plan...');
+                  const opt = await optimizeImageClient(stamp, 400, 400, 0.8);
+                  stamp = opt.data;
+                  needsUpdate = true;
+                } catch (e) {
+                  console.warn('Échec auto-optimisation cachet:', e);
+                }
+              }
+
+              const updatedSettings = {
+                ...settings,
+                logo,
+                signature,
+                stamp
+              };
+
+              setCompanyInfo(updatedSettings);
+              console.log('✅ Images de l\'entreprise préchargées et nettoyées');
+
+              if (needsUpdate) {
+                console.log('💾 Sauvegarde en base de données des images optimisées...');
+                await saveCompanySettings(userId, updatedSettings);
+                console.log('✅ Images optimisées sauvegardées en base de données');
+              }
             }
           }).catch(err => console.warn('Erreur préchargement images:', err));
         })

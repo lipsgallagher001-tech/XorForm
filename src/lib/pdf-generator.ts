@@ -49,18 +49,50 @@ const optimizeImage = async (
   maxWidth = 800
 ): Promise<{ data: string; format: 'PNG' | 'JPEG' }> =>
   new Promise(resolve => {
+    // ⚡ OPTIMISATION RAPIDE : Si l'image est déjà petite, éviter le traitement
+    if (base64.length < 50000) {
+      const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
+      resolve({ data: base64, format: isJpeg ? 'JPEG' : 'PNG' });
+      return;
+    }
+
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement('canvas');
       let w = img.width, h = img.height;
+
+      // Si l'image est déjà plus petite que la largeur max et que son poids est raisonnable,
+      // éviter de la redessiner dans un canvas
+      if (w <= maxWidth && base64.length < 150000) {
+        const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
+        resolve({ data: base64, format: isJpeg ? 'JPEG' : 'PNG' });
+        return;
+      }
+
       if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (!ctx) { resolve({ data: base64, format: 'PNG' }); return; }
       ctx.drawImage(img, 0, 0, w, h);
+
+      // Si le format d'origine est JPEG, pas d'alpha possible
+      const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
+      if (isJpeg) {
+        resolve({ data: canvas.toDataURL('image/jpeg', 0.85), format: 'JPEG' });
+        return;
+      }
+
+      // Échantillonner 1 pixel sur 4 (pas de 16) pour accélérer le scan d'alpha
       const px = ctx.getImageData(0, 0, w, h).data;
       let hasAlpha = false;
-      for (let i = 3; i < px.length; i += 4) if (px[i] < 255) { hasAlpha = true; break; }
+      const len = px.length;
+      for (let i = 3; i < len; i += 16) {
+        if (px[i] < 250) {
+          hasAlpha = true;
+          break;
+        }
+      }
+
       resolve(hasAlpha
         ? { data: canvas.toDataURL('image/png'), format: 'PNG' }
         : { data: canvas.toDataURL('image/jpeg', 0.85), format: 'JPEG' });
@@ -88,9 +120,8 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const hasSig  = !!(company.signature || company.stamp);
 
   // ── Zones ancrées depuis le bas ────────────────────────────────────────────
-  // Espace réservé en bas (bande navy 5 + marge bas 5 + services 10 + signature maxImgH + marge de sécurité 12)
   const footerBlockH = company.services ? 10 : 0;
-  const sigBlockH = hasSig ? maxImgH + 5 : 0;
+  const sigBlockH = hasSig ? maxImgH + 6 + 4 : 0; // Cadre signature avec marges
   const bottomReserved = 5 + 5 + footerBlockH + sigBlockH + 12;
 
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
@@ -98,8 +129,10 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // ── 1. HEADER ──────────────────────────────────────────────────────────────
   let y = M;
 
-  const logoW = company.logoWidth  || 18;
-  const logoH = company.logoHeight || 18;
+  // Adaptation de la taille relative pour correspondre à 0.53 cqw
+  const scaleFactor = 1.113;
+  const logoW = (company.logoWidth  || 18) * scaleFactor;
+  const logoH = (company.logoHeight || 18) * scaleFactor;
 
   if (company.logo) {
     try {
@@ -124,52 +157,60 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const infoX = M + logoW + 5;
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(company.name, infoX, y + 5);
+  doc.text(company.name, infoX, y + 4);
 
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  doc.setTextColor(100, 100, 100);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+  doc.setTextColor(100, 116, 139); // slate-400 (#94A3B8 / slate-500)
   const infoLines: string[] = [company.address, company.phone, company.email];
   if (company.siret) infoLines.push(`SIRET: ${company.siret}`);
-  infoLines.forEach((line, i) => doc.text(line, infoX, y + 12 + i * 4.8));
+  infoLines.forEach((line, i) => doc.text(line, infoX, y + 10 + i * 4.5));
 
-  // Droite
+  // Droite (Type de document et date)
   doc.setTextColor(...PRIMARY);
-  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 5, { align: 'right' });
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
-  doc.setTextColor(80, 80, 80);
-  doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 12, { align: 'right' });
+  doc.setFontSize(13); doc.setFont('helvetica', 'bold');
+  doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 4, { align: 'right' });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+  doc.setTextColor(148, 163, 184); // slate-400
+  doc.text(`DATE : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 10, { align: 'right' });
 
-  y += Math.max(logoH, 24) + 5;
-  doc.setDrawColor(...PRIMARY); doc.setLineWidth(0.3);
+  y += Math.max(logoH, 24) + 4;
+  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2); // border-border
   doc.line(M, y, PW - M, y);
-  y += 12;
-
-  // ── 2. TITRE ───────────────────────────────────────────────────────────────
-  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...PRIMARY);
-  const label = proforma.type === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA';
-  doc.text(`${label} : ${proforma.number}`, PW / 2, y, { align: 'center' });
   y += 10;
 
-  // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
-  const clientH = 16;
-  doc.setFillColor(...MUTED);
-  doc.rect(M, y, PW - 2 * M, clientH, 'F');
+  // ── 2. TITRE ───────────────────────────────────────────────────────────────
+  doc.setFontSize(15); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PRIMARY);
-  doc.setFontSize(9); doc.setFont('helvetica', 'bold');
-  doc.text('Facture à', M + 3, y + 5.5);
-  doc.setFontSize(11);
-  doc.text(`Client : ${proforma.client.name.toUpperCase()}`, M + 3, y + 12);
-  if (proforma.client.phone) {
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text(proforma.client.phone, PW - M - 3, y + 12, { align: 'right' });
+  const label = proforma.type === 'FACTURE' ? 'FACTURE N°' : 'PRO-FORMA N°';
+  doc.text(`${label} ${proforma.number}`, PW / 2, y, { align: 'center' });
+  y += 8;
+
+  // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
+  const hasPhone = !!proforma.client.phone;
+  const clientH = hasPhone ? 19 : 14;
+
+  doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
+  doc.setFillColor(248, 250, 252); // #F8FAFC (slate-50/50)
+  doc.setLineWidth(0.15);
+  doc.roundedRect(M, y, PW - 2 * M, clientH, 2.5, 2.5, 'FD'); // Coins arrondis avec bordure et remplissage
+
+  doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
+  doc.setFontSize(8); doc.setFont('helvetica', 'bold');
+  doc.text('CLIENT FACTURÉ', M + 4, y + 4.5);
+
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(10.5); doc.setFont('helvetica', 'bold');
+  doc.text(proforma.client.name.toUpperCase(), M + 4, y + 10);
+
+  if (hasPhone) {
+    doc.setTextColor(148, 163, 184); // #94A3B8
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+    doc.text(`TÉL : ${proforma.client.phone}`, M + 4, y + 15);
   }
   y += clientH + 5;
 
   // ── 4. TABLEAU ─────────────────────────────────────────────────────────────
-  // Calcul de l'espace disponible pour le tableau
-  const totalsH  = 40;  // sous-total + barre jaune + lettres (marge de securite)
+  const totalsH  = 42;  // Espace pour totaux + marge sécurité
   const availForTable = PH - y - totalsH - bottomReserved;
   const ROW_H    = 9.0;
   const HEAD_H   = 11;
@@ -177,10 +218,10 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const maxRows  = Math.max(MIN_ROWS, Math.floor((availForTable - HEAD_H) / ROW_H));
 
   const tableData = proforma.items.map(item => [
-    item.description || '',
+    item.description || 'Sans description',
     item.quantity.toString(),
-    fmtCur(item.unitPrice),
-    fmtCur(item.quantity * item.unitPrice)
+    `${item.unitPrice.toLocaleString('fr-FR')} F`,
+    `${(item.quantity * item.unitPrice).toLocaleString('fr-FR')} F`
   ]);
   while (tableData.length < maxRows) tableData.push(['', '', '', '']);
 
@@ -193,19 +234,18 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     headStyles: {
       fillColor: [...PRIMARY] as [number, number, number],
       textColor: [...WHITE] as [number, number, number],
-      fontSize: 10,
+      fontSize: 9.5,
       fontStyle: 'bold',
-      halign: 'left',
       cellPadding: 3.5,
-      lineColor: [...PRIMARY] as [number, number, number],
-      lineWidth: 0.1,
+      lineColor: [255, 255, 255, 0.15],
+      lineWidth: 0.15,
     },
     styles: {
-      fontSize: 10,
-      cellPadding: 3.5,
+      fontSize: 9.5,
+      cellPadding: 3.2,
       textColor: [...PRIMARY] as [number, number, number],
-      lineColor: [210, 210, 210],
-      lineWidth: 0.1,
+      lineColor: [226, 232, 240], // #E2E8F0 pour correspondre à l'aperçu
+      lineWidth: 0.15,
       minCellHeight: ROW_H,
     },
     columnStyles: {
@@ -224,54 +264,78 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const discountAmt = (subtotal * (proforma.discountPercent || 0)) / 100;
   const totalHT     = subtotal - discountAmt;
 
-  doc.setFontSize(10); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
-  doc.text(`Sous-total : ${fmtCur(subtotal)} CFA`, PW - M, y, { align: 'right' });
+  doc.setFontSize(9.5); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
+  doc.text(`Sous-total : ${subtotal.toLocaleString('fr-FR')} F CFA`, PW - M, y, { align: 'right' });
   y += 5.5;
 
   if ((proforma.discountPercent || 0) > 0) {
-    doc.text(`Remise : ${fmtCur(discountAmt)} F`, PW - M, y, { align: 'right' });
+    doc.setTextColor(239, 68, 68); // #EF4444 (destructive red)
+    doc.text(`Remise (${proforma.discountPercent}%) : -${discountAmt.toLocaleString('fr-FR')} F CFA`, PW - M, y, { align: 'right' });
     y += 5.5;
   }
 
   const barH = 12;
   doc.setFillColor(...ACCENT);
-  doc.rect(M, y, PW - 2 * M, barH, 'F');
+  doc.roundedRect(M, y, PW - 2 * M, barH, 2.5, 2.5, 'F'); // Coins arrondis pour l'encadré du total
   doc.setTextColor(...WHITE);
-  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, y + 8.5, { align: 'right' });
+  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
+  doc.text(`TOTAL NET : ${totalHT.toLocaleString('fr-FR')} F CFA`, PW - M - 4, y + 7.8, { align: 'right' });
   y += barH + 5;
 
   // ── 6. MONTANT EN LETTRES ──────────────────────────────────────────────────
   const words = numberToWords(Math.round(totalHT));
-  const wordsText = `Arrêtée la présente facture à la somme de : ${words}`;
-  doc.setFontSize(9.5); doc.setFont('helvetica', 'italic');
-  doc.setTextColor(80, 80, 80);
+  const wordsText = `Arrêtée la présente facture à la somme de : ${words} FRANCS CFA`;
+  doc.setFontSize(9.2); doc.setFont('helvetica', 'italic');
+  doc.setTextColor(100, 116, 139); // slate-500
   const fullLines = doc.splitTextToSize(wordsText, PW - 2 * M);
   doc.text(fullLines, M, y);
-  y += fullLines.length * 5 + 3;
+  y += fullLines.length * 4.8 + 3;
 
   // ── 7. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
-  const footerY = PH - 5 - 10; // Placer les services à 15 mm du bas physique (juste au-dessus de la bande navy)
+  const footerY = PH - 5 - 10;
   const sigLabelY = company.services 
     ? footerY - maxImgH - 6
     : PH - 5 - 10 - maxImgH - 4;
 
   if (hasSig) {
-    const stampW = company.stampWidth     || 32;
-    const sigW   = company.signatureWidth || 32;
-    const imgY   = sigLabelY + 2;
+    const stampW = company.stampWidth     || 35;
+    const sigW   = company.signatureWidth || 35;
+    const stampH = company.stampHeight    || 25;
+    const sigH   = company.signatureHeight|| 25;
+    const maxImgH = Math.max(stampH, sigH);
+
+    // Calcul de la largeur totale de la boîte de signature/cachet
+    let boxW = 0;
+    if (company.stamp && company.signature) {
+      boxW = stampW + sigW + 12; // Espace entre les images
+    } else {
+      boxW = (company.stamp ? stampW : sigW) + 8;
+    }
+    const boxH = maxImgH + 6;
+    const boxX = PW - M - boxW;
+    const boxY = sigLabelY;
+
+    // Dessiner le cadre comme sur la maquette d'aperçu
+    doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
+    doc.setFillColor(248, 250, 252); // #F8FAFC
+    doc.setLineWidth(0.15);
+    doc.roundedRect(boxX, boxY, boxW, boxH, 2.5, 2.5, 'FD'); // FD = Fill & Draw
 
     if (company.stamp) {
       try {
         const opt = await optimizeImage(company.stamp, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW - stampW - 5, imgY, stampW, stampH2, undefined, 'FAST');
+        const imgX = boxX + 4;
+        const imgY = boxY + 3 + (maxImgH - stampH) / 2;
+        doc.addImage(opt.data, opt.format, imgX, imgY, stampW, stampH, undefined, 'FAST');
       } catch { /* skip */ }
     }
     if (company.signature) {
       try {
         const opt = await optimizeImage(company.signature, 300);
-        doc.addImage(opt.data, opt.format, PW - M - sigW, imgY, sigW, sigH, undefined, 'FAST');
+        const imgX = company.stamp ? boxX + stampW + 8 : boxX + 4;
+        const imgY = boxY + 3 + (maxImgH - sigH) / 2;
+        doc.addImage(opt.data, opt.format, imgX, imgY, sigW, sigH, undefined, 'FAST');
       } catch { /* skip */ }
     }
   }
@@ -279,16 +343,16 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // ── 8. FOOTER — ancré en bas ───────────────────────────────────────────────
   if (company.services) {
     const sLines = company.services.split('\n').filter(Boolean);
-    doc.setFontSize(10); doc.setFont('helvetica', 'bolditalic');
+    doc.setFontSize(9.5); doc.setFont('helvetica', 'bold');
     doc.setTextColor(...PRIMARY);
-    doc.text(`NOS SERVICES : ${sLines.join(', ')}`, PW / 2, footerY, {
+    doc.text(`SERVICES : ${sLines.join(', ')}`, PW / 2, footerY, {
       align: 'center',
       maxWidth: PW - 2 * M
     });
   }
 
   doc.setFillColor(...PRIMARY);
-  doc.rect(0, PH - 5, PW, 5, 'F');
+  doc.rect(0, PH - 4, PW, 4, 'F'); // Bande fine de 4 mm
 
   return doc;
 };

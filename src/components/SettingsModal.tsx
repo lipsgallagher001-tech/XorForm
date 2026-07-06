@@ -9,6 +9,7 @@ import { CompanyInfo, DEFAULT_COMPANY } from '../types';
 import { loadCompanyImages, saveCompanySettings } from '../lib/supabase-helpers';
 import { validateCompanyInfo } from '../lib/validation';
 import { formatValidationErrors } from '../lib/errors';
+import { optimizeImageClient } from '../lib/image-optimizer';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -220,12 +221,19 @@ export default function SettingsModal({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const base64 = event.target?.result as string;
-                            setCompanyInfo({ ...companyInfo, logo: base64 });
-                          };
-                          reader.readAsDataURL(file);
+                          optimizeImageClient(file, 800, 800, 0.8)
+                            .then(opt => {
+                              setCompanyInfo(prev => ({ ...prev, logo: opt.data }));
+                            })
+                            .catch(err => {
+                              console.warn("Erreur d'optimisation du logo, chargement brut :", err);
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const base64 = event.target?.result as string;
+                                setCompanyInfo(prev => ({ ...prev, logo: base64 }));
+                              };
+                              reader.readAsDataURL(file);
+                            });
                         }
                       }}
                     />
@@ -285,12 +293,19 @@ export default function SettingsModal({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const base64 = event.target?.result as string;
-                            setCompanyInfo({ ...companyInfo, signature: base64 });
-                          };
-                          reader.readAsDataURL(file);
+                          optimizeImageClient(file, 400, 400, 0.8)
+                            .then(opt => {
+                              setCompanyInfo(prev => ({ ...prev, signature: opt.data }));
+                            })
+                            .catch(err => {
+                              console.warn("Erreur d'optimisation de la signature, chargement brut :", err);
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const base64 = event.target?.result as string;
+                                setCompanyInfo(prev => ({ ...prev, signature: base64 }));
+                              };
+                              reader.readAsDataURL(file);
+                            });
                         }
                       }}
                     />
@@ -317,12 +332,19 @@ export default function SettingsModal({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const base64 = event.target?.result as string;
-                            setCompanyInfo({ ...companyInfo, stamp: base64 });
-                          };
-                          reader.readAsDataURL(file);
+                          optimizeImageClient(file, 400, 400, 0.8)
+                            .then(opt => {
+                              setCompanyInfo(prev => ({ ...prev, stamp: opt.data }));
+                            })
+                            .catch(err => {
+                              console.warn("Erreur d'optimisation du cachet, chargement brut :", err);
+                              const reader = new FileReader();
+                              reader.onload = (event) => {
+                                const base64 = event.target?.result as string;
+                                setCompanyInfo(prev => ({ ...prev, stamp: base64 }));
+                              };
+                              reader.readAsDataURL(file);
+                            });
                         }
                       }}
                     />
