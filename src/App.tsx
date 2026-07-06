@@ -15,7 +15,8 @@ import {
   CheckCircle2,
   Calendar,
   MessageSquare,
-  Share2
+  Share2,
+  Menu
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo } from './types';
@@ -174,6 +175,8 @@ export default function App() {
   const [selectedHistoryIds, setSelectedHistoryIds] = useState<string[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(false); // ⚡ Nouveau: indicateur de chargement
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
 
   // Derivatives - TOUS LES HOOKS AVANT LE RETURN
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0), [items]);
@@ -222,6 +225,42 @@ export default function App() {
   useEffect(() => {
     console.log('État d\'authentification changé:', isAuthenticated);
   }, [isAuthenticated]);
+
+  // Raccourcis clavier globaux (productivité Desktop)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isModifierPressed = isMac ? e.metaKey : e.ctrlKey;
+
+      // Ctrl + S / Cmd + S : Sauvegarde du document
+      if (isModifierPressed && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (client.name && items.some(i => i.description && i.quantity > 0 && i.unitPrice >= 0)) {
+          saveProforma();
+        }
+      }
+
+      // Ctrl + P / Cmd + P : Exportation PDF
+      if (isModifierPressed && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        handleExport({
+          id: viewingHistoryId || currentId,
+          type: docType,
+          number: proformaNumber,
+          date: proformaDate,
+          client,
+          items,
+          total,
+          discountPercent
+        });
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [client, items, viewingHistoryId, currentId, docType, proformaNumber, proformaDate, total, discountPercent]);
 
   const handleLogin = async (email: string, password: string) => {
     // La connexion est déjà gérée dans Login.tsx
@@ -386,8 +425,10 @@ export default function App() {
 
   // Effects
   // Actions
-  const addItem = () => {
-    setItems([...items, { id: generateId(), description: '', quantity: 1, unitPrice: 0 }]);
+  const addItem = (customId?: string) => {
+    const id = customId || generateId();
+    setItems([...items, { id, description: '', quantity: 1, unitPrice: 0 }]);
+    return id;
   };
 
   const removeItem = (id: string) => {
@@ -601,45 +642,98 @@ export default function App() {
       title="XorForm - Générateur de Proforma et Factures Professionnel"
       description="Créez des proformas et factures professionnels en quelques clics. Solution gratuite, intuitive et sécurisée pour gérer vos devis et facturations."
     />
-    <div className="h-screen bg-white text-app-navy font-sans flex flex-col overflow-hidden">
+
+    <div className="h-screen bg-background text-foreground font-sans flex flex-col overflow-hidden">
       
-      {/* Top Navigation Bar */}
-      <header className="h-14 bg-white border-b border-app-light-blue flex items-center justify-between px-4 md:px-6 shrink-0 z-20">
+      {/* Barre de navigation supérieure minimaliste */}
+      <header className="h-16 bg-white border-b border-border flex items-center justify-between px-6 shrink-0 z-30 relative">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-app-navy rounded flex items-center justify-center text-white font-bold text-sm shadow-sm">
+          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-white font-black text-base shadow-sm">
             X
           </div>
           <div className="flex items-baseline gap-2">
-            <h1 className="font-semibold text-base md:text-lg tracking-tight text-app-navy">XorForm</h1>
-            <span className="text-slate-400 font-normal text-[10px] md:text-xs italic hidden sm:inline">Personal Edition</span>
+            <span className="font-black text-lg tracking-tight text-primary">XorForm</span>
+            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-widest hidden sm:inline">Edition Personnelle</span>
           </div>
         </div>
 
-        <div className="flex items-center gap-1 md:gap-2">
-          <button 
-            onClick={async () => {
-              setShowHistory(true);
-              // ⚡ CHARGEMENT À LA DEMANDE: Charger l'historique uniquement quand l'utilisateur clique
-              if (currentUserId && history.length === 0) {
-                console.log('📥 Chargement historique à la demande...');
-                setIsLoadingData(true);
-                const proformas = await loadProformas(currentUserId, 20);
-                setHistory(proformas);
-                setIsLoadingData(false);
-                console.log('✅ Historique chargé:', proformas.length);
-              }
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-app-light-blue/20 rounded-md transition-colors"
-          >
-            <HistoryIcon size={16} />
-            <span>Historique</span>
-            {history.length > 0 && (
-              <span className="bg-app-light-blue text-app-navy text-[10px] px-1.5 py-0.5 rounded-full font-bold">
-                {history.length}
-              </span>
-            )}
-          </button>
-          <div className="w-px h-4 bg-app-light-blue/50 mx-1" />
+        <div className="flex items-center gap-2">
+          {/* Menu bureau (Masqué sur mobile) */}
+          <div className="hidden md:flex items-center gap-2">
+            {/* Bouton Historique épuré */}
+            <button 
+              onClick={async () => {
+                setShowHistory(true);
+                if (currentUserId && history.length === 0) {
+                  console.log('📥 Chargement historique à la demande...');
+                  setIsLoadingData(true);
+                  const proformas = await loadProformas(currentUserId, 20);
+                  setHistory(proformas);
+                  setIsLoadingData(false);
+                  console.log('✅ Historique chargé:', proformas.length);
+                }
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <HistoryIcon size={14} />
+              <span>Historique</span>
+              {history.length > 0 && (
+                <span className="bg-primary text-white text-[9px] px-2 py-0.5 rounded-full font-black">
+                  {history.length}
+                </span>
+              )}
+            </button>
+            
+            <div className="w-px h-5 bg-border mx-1" />
+
+            {/* Bouton Paramètres */}
+            <button 
+              onClick={async () => {
+                setShowSettings(true);
+                if (currentUserId) {
+                  console.log('📥 Chargement paramètres + images...');
+                  const [settings, images] = await Promise.all([
+                    companyInfo.name === DEFAULT_COMPANY.name
+                      ? loadCompanySettings(currentUserId)
+                      : Promise.resolve(null),
+                    (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp)
+                      ? loadCompanyImages(currentUserId)
+                      : Promise.resolve(null),
+                  ]);
+
+                  setCompanyInfo((prev) => {
+                    const base = settings ? { ...prev, ...settings } : { ...prev };
+                    if (images) {
+                      base.logo = images.logo;
+                      base.signature = images.signature;
+                      base.stamp = images.stamp;
+                    }
+                    return base;
+                  });
+                  console.log('✅ Paramètres et images chargés');
+                }
+              }}
+              className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
+              title="Paramètres"
+            >
+              <Settings size={16} />
+            </button>
+            
+            <div className="w-px h-5 bg-border mx-1" />
+            
+            {/* Bouton Déconnexion */}
+            <button 
+              onClick={handleLogout}
+              className="px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50/50 rounded-xl transition-all uppercase tracking-widest cursor-pointer"
+              title="Déconnexion"
+            >
+              Déconnexion
+            </button>
+
+            <div className="w-px h-5 bg-border mx-1" />
+          </div>
+          
+          {/* Bouton de génération de PDF vert émeraude (Toujours visible pour accessibilité rapide) */}
           <button 
             onClick={() => handleExport({
               id: viewingHistoryId || currentId,
@@ -652,384 +746,502 @@ export default function App() {
               discountPercent
             })}
             disabled={isGeneratingPDF}
-            className="bg-app-yellow text-app-navy px-3 md:px-4 py-1.5 rounded-md text-xs md:sm font-bold shadow-sm hover:brightness-95 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-accent hover:bg-accent/95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer uppercase tracking-widest shadow-sm"
           >
             {isGeneratingPDF ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-app-navy border-t-transparent rounded-full animate-spin" />
-                <span className="hidden xs:inline uppercase tracking-wider">Génération...</span>
+                <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="hidden xs:inline">Génération...</span>
               </>
             ) : (
               <>
-                <Download size={14} className="md:w-4 md:h-4" />
-                <span className="hidden xs:inline uppercase tracking-wider">PDF</span>
+                <Download size={13} />
+                <span className="hidden xs:inline">Exporter PDF</span>
               </>
             )}
           </button>
-          <button 
-            onClick={async () => {
-              setShowSettings(true);
-              // ⚡ Charger les paramètres + images quand l'utilisateur ouvre les réglages
-              // (les images sont nécessaires pour afficher le logo/signature/cachet déjà enregistrés)
-              if (currentUserId) {
-                console.log('📥 Chargement paramètres + images...');
-                const [settings, images] = await Promise.all([
-                  companyInfo.name === DEFAULT_COMPANY.name
-                    ? loadCompanySettings(currentUserId)
-                    : Promise.resolve(null),
-                  // Charger les images seulement si elles ne sont pas déjà présentes
-                  (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp)
-                    ? loadCompanyImages(currentUserId)
-                    : Promise.resolve(null),
-                ]);
 
-                setCompanyInfo((prev) => {
-                  const base = settings ? { ...prev, ...settings } : { ...prev };
-                  if (images) {
-                    base.logo = images.logo;
-                    base.signature = images.signature;
-                    base.stamp = images.stamp;
-                  }
-                  return base;
-                });
-                console.log('✅ Paramètres et images chargés');
-              }
-            }}
-            className="p-1.5 text-slate-400 hover:text-app-navy transition-colors"
-          >
-            <Settings size={18} />
-          </button>
-          <div className="w-px h-4 bg-app-light-blue/50 mx-1" />
+          {/* Bouton Hamburger mobile (Masqué sur bureau) */}
           <button 
-            onClick={handleLogout}
-            className="px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 rounded-md transition-colors uppercase tracking-wider"
-            title="Déconnexion"
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-all md:hidden cursor-pointer"
+            title="Menu"
           >
-            Déconnexion
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
+
+        {/* Tiroir Mobile Déroulant (Menu Hamburger) */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-16 left-0 right-0 bg-white border-b border-border shadow-md py-4 px-6 flex flex-col gap-4 animate-fade-in-down md:hidden z-30">
+            <button 
+              onClick={async () => {
+                setIsMobileMenuOpen(false);
+                setShowHistory(true);
+                if (currentUserId && history.length === 0) {
+                  setIsLoadingData(true);
+                  const proformas = await loadProformas(currentUserId, 20);
+                  setHistory(proformas);
+                  setIsLoadingData(false);
+                }
+              }}
+              className="flex items-center justify-between py-2 text-sm font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider text-left"
+            >
+              <span className="flex items-center gap-3">
+                <HistoryIcon size={16} />
+                Historique
+              </span>
+              {history.length > 0 && (
+                <span className="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-black">
+                  {history.length}
+                </span>
+              )}
+            </button>
+
+            <button 
+              onClick={async () => {
+                setIsMobileMenuOpen(false);
+                setShowSettings(true);
+                if (currentUserId) {
+                  const [settings, images] = await Promise.all([
+                    companyInfo.name === DEFAULT_COMPANY.name ? loadCompanySettings(currentUserId) : Promise.resolve(null),
+                    (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp) ? loadCompanyImages(currentUserId) : Promise.resolve(null),
+                  ]);
+                  setCompanyInfo((prev) => {
+                    const base = settings ? { ...prev, ...settings } : { ...prev };
+                    if (images) {
+                      base.logo = images.logo;
+                      base.signature = images.signature;
+                      base.stamp = images.stamp;
+                    }
+                    return base;
+                  });
+                }
+              }}
+              className="flex items-center gap-3 py-2 text-sm font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider text-left"
+            >
+              <Settings size={16} />
+              Paramètres Entreprise
+            </button>
+
+            <div className="h-px bg-border my-1" />
+
+            <button 
+              onClick={() => {
+                setIsMobileMenuOpen(false);
+                handleLogout();
+              }}
+              className="flex items-center gap-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-left"
+            >
+              Déconnexion
+            </button>
+          </div>
+        )}
       </header>
 
+
       <main className="flex flex-1 overflow-hidden relative flex-col lg:flex-row">
-        {/* Mobile Tab Switcher */}
-        <div className="flex lg:hidden bg-app-light-blue/20 p-1 shrink-0 border-b border-app-light-blue/30">
+        {/* Sélecteur mobile minimaliste */}
+        <div className="flex lg:hidden bg-slate-50 p-1 shrink-0 border-b border-border">
           <button 
             onClick={() => setMobileView('editor')}
-            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${mobileView === 'editor' ? 'bg-white text-app-navy shadow-sm border border-app-light-blue/50' : 'text-slate-500'}`}
+            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all tracking-widest ${mobileView === 'editor' ? 'bg-white text-primary shadow-sm border border-border' : 'text-slate-400'}`}
           >
             ÉDITEUR
           </button>
           <button 
             onClick={() => setMobileView('preview')}
-            className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${mobileView === 'preview' ? 'bg-white text-app-navy shadow-sm border border-app-light-blue/50' : 'text-slate-500'}`}
+            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all tracking-widest ${mobileView === 'preview' ? 'bg-white text-primary shadow-sm border border-border' : 'text-slate-400'}`}
           >
             APERÇU
           </button>
         </div>
 
         {/* Editor Pane (Left) */}
-        <section className={`w-full lg:w-[450px] bg-white border-r border-app-light-blue/30 flex flex-col shrink-0 overflow-y-auto ${mobileView === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
+        <section className={`w-full lg:w-[450px] bg-white border-r border-border flex flex-col shrink-0 overflow-y-auto ${mobileView === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
           <div className="p-4 md:p-6 space-y-6 flex-1">
-            {/* Document Type Selector */}
-            <div className="bg-app-light-blue/10 p-1 rounded-xl flex gap-1">
+
+            {/* Sélecteur de type de document minimaliste */}
+            <div className="bg-slate-100/80 p-1.5 rounded-2xl flex gap-1.5 border border-border">
               <button 
                 onClick={() => setDocType('PROFORMA')}
-                className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all tracking-widest ${docType === 'PROFORMA' ? 'bg-app-navy text-white shadow-md' : 'text-app-navy/40 hover:bg-app-light-blue/20'}`}
+                className={`flex-1 py-2.5 text-[9px] font-black rounded-xl transition-all tracking-widest cursor-pointer ${docType === 'PROFORMA' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-slate-200/50'}`}
               >
                 PROFORMA
               </button>
               <button 
                 onClick={() => setDocType('FACTURE')}
-                className={`flex-1 py-2 text-[10px] font-black rounded-lg transition-all tracking-widest ${docType === 'FACTURE' ? 'bg-app-navy text-white shadow-md' : 'text-app-navy/40 hover:bg-app-light-blue/20'}`}
+                className={`flex-1 py-2.5 text-[9px] font-black rounded-xl transition-all tracking-widest cursor-pointer ${docType === 'FACTURE' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-slate-200/50'}`}
               >
                 FACTURE
               </button>
             </div>
 
-            <div>
-              <h2 className="text-xs font-bold text-app-navy/60 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <FileText size={14} className="text-app-yellow" />
+            {/* Détails du Client */}
+            <div className="space-y-4">
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <FileText size={13} />
                 Détails du Client
               </h2>
+              
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Identifiant</label>
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Identifiant */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Identifiant</label>
                     <input 
                       type="text" 
                       value={proformaNumber} 
                       readOnly 
-                      className="w-full bg-slate-50/50 border border-app-light-blue/30 rounded px-3 py-2 text-sm focus:outline-none text-slate-500 font-mono"
+                      className="w-full bg-slate-50 border border-border rounded-xl px-3.5 py-2.5 text-xs text-slate-500 font-mono focus:outline-none"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Date</label>
+                  {/* Date */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
                     <div className="relative">
                       <input 
                         type="text" 
                         value={format(new Date(proformaDate), 'dd MMM yyyy')} 
                         readOnly 
-                        className="w-full bg-slate-50/50 border border-app-light-blue/30 rounded px-3 py-2 text-sm text-slate-500"
+                        className="w-full bg-slate-50 border border-border rounded-xl px-3.5 py-2.5 text-xs text-slate-500 focus:outline-none"
                       />
-                      <Calendar size={14} className="absolute right-3 top-2.5 text-slate-300" />
+                      <Calendar size={13} className="absolute right-3.5 top-3.5 text-slate-400" />
                     </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Nom du Client</label>
+
+                {/* Nom du Client */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Nom du Client</label>
                   <div className="relative">
                     <input 
                       type="text" 
                       placeholder="Studio Horizon Digital"
                       value={client.name}
-                      onChange={e => { setClient({...client, name: e.target.value}); setShowClientSuggestions(true); }}
-                      onFocus={() => setShowClientSuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowClientSuggestions(false), 150)}
-                      className="w-full border border-app-light-blue/50 rounded px-3 py-2 text-sm focus:border-app-navy focus:ring-1 focus:ring-app-navy/10 outline-none transition-all"
+                      onChange={e => { 
+                        setClient({...client, name: e.target.value}); 
+                        setShowClientSuggestions(true);
+                        setActiveSuggestionIndex(-1);
+                      }}
+                      onFocus={() => {
+                        setShowClientSuggestions(true);
+                        setActiveSuggestionIndex(-1);
+                      }}
+                      onBlur={() => setTimeout(() => {
+                        setShowClientSuggestions(false);
+                        setActiveSuggestionIndex(-1);
+                      }, 150)}
+                      onKeyDown={e => {
+                        if (showClientSuggestions && clientSuggestions.length > 0) {
+                          if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex(prev => 
+                              prev < clientSuggestions.length - 1 ? prev + 1 : prev
+                            );
+                          } else if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            setActiveSuggestionIndex(prev => prev > 0 ? prev - 1 : -1);
+                          } else if (e.key === 'Enter') {
+                            if (activeSuggestionIndex >= 0 && activeSuggestionIndex < clientSuggestions.length) {
+                              e.preventDefault();
+                              const selected = clientSuggestions[activeSuggestionIndex];
+                              setClient({ name: selected.name, phone: selected.phone || '' });
+                              setShowClientSuggestions(false);
+                              setActiveSuggestionIndex(-1);
+                            }
+                          }
+                        }
+                      }}
+                      className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
                     />
                     {showClientSuggestions && clientSuggestions.length > 0 && (
-                      <ul className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-app-light-blue/50 rounded-lg shadow-lg overflow-hidden">
+                      <ul className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg overflow-hidden">
                         {clientSuggestions.map((c, idx) => (
                           <li
                             key={idx}
-                            onMouseDown={() => { setClient({ name: c.name, phone: c.phone || '' }); setShowClientSuggestions(false); }}
-                            className="px-3 py-2 cursor-pointer hover:bg-app-light-blue/20 transition-colors"
+                            onMouseDown={() => { 
+                              setClient({ name: c.name, phone: c.phone || '' }); 
+                              setShowClientSuggestions(false); 
+                              setActiveSuggestionIndex(-1);
+                            }}
+                            className={`px-4 py-3 cursor-pointer transition-colors ${
+                              idx === activeSuggestionIndex 
+                                ? 'bg-slate-100 text-primary font-bold' 
+                                : 'hover:bg-slate-50'
+                            }`}
                           >
-                            <span className="block text-sm font-bold text-app-navy truncate">{c.name}</span>
-                            {c.phone && <span className="block text-[11px] text-app-navy/40 font-medium">{c.phone}</span>}
+                            <span className="block text-xs font-bold text-foreground truncate">{c.name}</span>
+                            {c.phone && <span className="block text-[9px] text-slate-400 font-semibold uppercase tracking-wider">{c.phone}</span>}
                           </li>
                         ))}
                       </ul>
                     )}
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <label className="block text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Téléphone</label>
+
+                {/* Téléphone */}
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Téléphone</label>
                   <input 
                     type="text" 
                     placeholder="+33 6 12 34 56 78"
                     value={client.phone}
                     onChange={e => setClient({...client, phone: e.target.value})}
-                    className="w-full border border-app-light-blue/50 rounded px-3 py-2 text-sm focus:border-app-navy focus:ring-1 focus:ring-app-navy/10 outline-none transition-all"
+                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
                   />
                 </div>
               </div>
             </div>
 
-            <div className="pt-2">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-bold text-app-navy/60 uppercase tracking-widest flex items-center gap-2">
-                  <CheckCircle2 size={14} className="text-app-yellow" />
+            {/* Services / Produits */}
+            <div className="pt-2 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <CheckCircle2 size={13} />
                   Services / Produits
                 </h3>
                 <button 
                   onClick={addItem}
-                  className="text-app-navy text-[11px] font-bold hover:text-app-yellow flex items-center gap-1 transition-colors"
+                  className="text-primary text-[10px] font-black hover:text-secondary flex items-center gap-1.5 transition-colors cursor-pointer uppercase tracking-widest py-2 px-3 hover:bg-slate-50 rounded-xl -my-2 -mx-3"
                 >
-                  <Plus size={12} />
-                  AJOUTER LIGNE
+                  <Plus size={11} />
+                  Ajouter ligne
                 </button>
               </div>
               
-              <div className="space-y-2">
-                  {items.map((item) => (
-                    <div 
-                      key={item.id}
-                      className="grid grid-cols-12 gap-2 group item-row-enter"
-                    >
-                      <div className="col-span-6">
-                        <input 
-                          type="text" 
-                          placeholder="Description..."
-                          value={item.description}
-                          onChange={e => updateItem(item.id, { description: e.target.value })}
-                          className="w-full border border-app-light-blue/50 rounded px-2 py-1.5 text-[12px] focus:border-app-navy outline-none"
-                        />
-                      </div>
-                      <div className="col-span-2">
+              <div className="space-y-3">
+                {items.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="grid grid-cols-12 gap-2.5 group item-row-enter items-center"
+                  >
+                    <div className="col-span-6">
+                      <input 
+                        type="text" 
+                        id={`desc-input-${item.id}`}
+                        placeholder="Description du produit/service..."
+                        value={item.description}
+                        onChange={e => updateItem(item.id, { description: e.target.value })}
+                        className="w-full bg-white border border-border rounded-xl px-3 py-2 text-xs focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <input 
+                        type="number" 
+                        min="1"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={item.quantity}
+                        onChange={e => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                        className="w-full bg-white border border-border rounded-xl px-2 py-2 text-xs text-center focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-bold"
+                      />
+                    </div>
+                    <div className="col-span-3">
+                      <div className="flex items-center border border-border rounded-xl bg-white overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
                         <input 
                           type="number" 
-                          min="1"
-                          value={item.quantity}
-                          onChange={e => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                          className="w-full border border-app-light-blue/50 rounded px-2 py-1.5 text-[12px] text-center focus:border-app-navy outline-none"
+                          min="0"
+                          inputMode="decimal"
+                          placeholder="0"
+                          value={item.unitPrice || ''}
+                          onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const isLastItem = items[items.length - 1].id === item.id;
+                              if (isLastItem) {
+                                const newId = generateId();
+                                addItem(newId);
+                                setTimeout(() => {
+                                  const nextInput = document.getElementById(`desc-input-${newId}`);
+                                  if (nextInput) nextInput.focus();
+                                }, 50);
+                              } else {
+                                const currentIndex = items.findIndex(i => i.id === item.id);
+                                const nextItem = items[currentIndex + 1];
+                                if (nextItem) {
+                                  const nextInput = document.getElementById(`desc-input-${nextItem.id}`);
+                                  if (nextInput) nextInput.focus();
+                                }
+                              }
+                            }
+                          }}
+                          className="w-full px-2 py-2 text-xs text-right outline-none font-bold bg-transparent"
                         />
-                      </div>
-                      <div className="col-span-3">
-                        <div className="flex items-center border border-app-light-blue/50 rounded overflow-hidden focus-within:border-app-navy">
-                          <input 
-                            type="number" 
-                            min="0"
-                            placeholder="0"
-                            value={item.unitPrice || ''}
-                            onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                            className="w-full px-2 py-1.5 text-[12px] text-right outline-none font-medium bg-transparent"
-                          />
-                          <span className="text-[10px] font-bold text-app-navy/40 bg-app-light-blue/20 px-1.5 py-1.5 border-l border-app-light-blue/50 shrink-0 select-none">FCFA</span>
-                        </div>
-                      </div>
-                      <div className="col-span-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button 
-                          onClick={() => removeItem(item.id)}
-                          className="text-slate-300 hover:text-app-black"
-                        >
-                          <Trash2 size={14} />
-                        </button>
+                        <span className="text-[8px] font-black text-slate-400 bg-slate-50 px-2 py-2.5 border-l border-border shrink-0 select-none uppercase tracking-wider">F</span>
                       </div>
                     </div>
-                  ))}
-                </div>
+                    <div className="col-span-1 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                      <button 
+                        onClick={() => removeItem(item.id)}
+                        className="text-slate-400 hover:text-destructive cursor-pointer transition-colors p-3 -m-3 rounded-lg"
+                        title="Supprimer la ligne"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            <div className="pt-6 mt-4 border-t border-app-light-blue/10">
+            {/* Réduction */}
+            <div className="pt-4 border-t border-border">
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-app-navy/40 uppercase tracking-wider">Réduction (%)</label>
-                <div className="flex items-center gap-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Réduction (%)</label>
+                <div className="flex items-center gap-3">
                   {discountAmount > 0 && (
-                    <span className="text-[10px] font-bold text-app-navy/40">-{discountAmount.toLocaleString()} FCFA</span>
+                    <span className="text-[10px] font-black text-slate-400">-{discountAmount.toLocaleString()} F CFA</span>
                   )}
                   <input 
                     type="number" 
                     value={discountPercent || ''}
+                    inputMode="decimal"
                     onChange={e => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
                     placeholder="0"
-                    className="w-20 border border-app-light-blue/50 rounded px-2 py-1.5 text-right text-xs focus:border-app-navy outline-none font-medium"
+                    className="w-20 bg-white border border-border rounded-xl px-3 py-2 text-right text-xs focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-bold"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Editor Footer */}
-          <div className="p-6 bg-app-light-blue/10 border-t border-app-light-blue/30 shrink-0">
-            <div className="flex justify-between items-center">
-              <span className="text-app-navy/60 font-bold text-xs uppercase tracking-wider">Total Général</span>
-              <span className="text-xl md:text-2xl font-black text-app-navy">{total.toLocaleString()} FCFA</span>
+          {/* Footer de l'éditeur */}
+          <div className="p-6 bg-slate-50 border-t border-border shrink-0">
+            <div className="flex justify-between items-center mb-4">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Général</span>
+              <span className="text-2xl font-black text-primary tracking-tight">{total.toLocaleString()} F CFA</span>
             </div>
-            <div className="mt-4">
+            <div>
               <button 
                 onClick={saveProforma}
                 disabled={!client.name || total === 0}
-                className="w-full bg-app-navy text-white py-3 rounded-lg font-bold text-sm hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed uppercase tracking-widest shadow-lg shadow-app-navy/10"
+                className="w-full bg-primary hover:bg-primary/95 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm flex items-center justify-center"
               >
                 {viewingHistoryId ? 'Mettre à jour' : 'Sauvegarder'}
               </button>
             </div>
-            <p className="text-[10px] text-app-navy/40 mt-3 text-center italic">Sauvegarde cloud sécurisée</p>
+            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-3.5 text-center">Sauvegarde Cloud Sécurisée</p>
           </div>
         </section>
 
-        {/* Preview Pane (Right) */}
-        <section className={`flex-1 bg-slate-200 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
-          {/* A4 paper — ratio 1:√2, max 600px de large */}
-          <div className="w-full max-w-[600px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)] flex flex-col relative overflow-hidden" style={{ aspectRatio: '1 / 1.4142' }}>
+        {/* Panneau d'Aperçu (Droite) - Rendu Premium A4 */}
+        <section className={`flex-1 bg-slate-100 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+          {/* Format Papier A4 avec ombrage minimaliste et net - Déclaration du Container */}
+          <div className="w-full max-w-[600px] bg-white border border-border shadow-[0_10px_40px_rgba(0,0,0,0.06)] flex flex-col relative overflow-hidden @container" style={{ aspectRatio: '1 / 1.4142' }}>
 
-            {/* ── HEADER ── */}
-            <div className="relative z-10 pb-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingTop: '6.73%' }}>
+            {/* ── EN-TÊTE DE FACTURATION ── */}
+            <div className="relative z-10 pb-[2.7cqw] shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingTop: '6.73%' }}>
               <div className="flex justify-between items-start">
-                {/* Left: logo + company info */}
-                <div className="flex items-start gap-3">
+                {/* Gauche: Logo et informations sur l'entreprise */}
+                <div className="flex items-start gap-[2.7cqw]">
                   {companyInfo.logo ? (
                     <img
                       src={companyInfo.logo}
                       alt="Logo"
                       className="object-contain shrink-0"
                       style={{
-                        width:  `${(companyInfo.logoWidth  || 18) * 3.2}px`,
-                        height: `${(companyInfo.logoHeight || 18) * 3.2}px`,
+                        width:  `${(companyInfo.logoWidth  || 18) * 0.53}cqw`,
+                        height: `${(companyInfo.logoHeight || 18) * 0.53}cqw`,
                       }}
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-app-navy rounded flex items-center justify-center text-white font-bold text-base shrink-0">
+                    <div className="w-[7.3cqw] h-[7.3cqw] bg-primary rounded-[2cqw] flex items-center justify-center text-white font-black text-[3cqw] shrink-0">
                       {companyInfo.name.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <div>
-                    <p className="font-black text-[14px] text-app-navy leading-tight">{companyInfo.name}</p>
-                    <p className="text-[10.5px] text-slate-500 leading-[1.5] mt-0.5">{companyInfo.address}</p>
-                    <p className="text-[10.5px] text-app-navy/70 leading-[1.5]">{companyInfo.phone}</p>
-                    <p className="text-[10.5px] text-blue-600 leading-[1.5]">{companyInfo.email}</p>
-                    {companyInfo.siret && <p className="text-[9px] text-slate-400 leading-[1.5]">SIRET: {companyInfo.siret}</p>}
+                  <div className="space-y-[0.3cqw]">
+                    <p className="font-black text-[2.3cqw] text-primary leading-tight">{companyInfo.name}</p>
+                    <p className="text-[1.7cqw] text-slate-400 font-semibold leading-relaxed">{companyInfo.address}</p>
+                    <p className="text-[1.7cqw] text-slate-500 font-bold leading-relaxed">{companyInfo.phone}</p>
+                    <p className="text-[1.7cqw] text-secondary font-semibold leading-relaxed">{companyInfo.email}</p>
+                    {companyInfo.siret && <p className="text-[1.3cqw] text-slate-400 font-medium leading-relaxed">SIRET: {companyInfo.siret}</p>}
                   </div>
                 </div>
-                {/* Right: doc type + date */}
-                <div className="text-right shrink-0">
-                  <p className="font-black text-[14px] text-app-navy uppercase leading-tight">
+                {/* Droite: Type de document et date */}
+                <div className="text-right shrink-0 space-y-[0.7cqw]">
+                  <p className="font-black text-[2.3cqw] text-primary tracking-widest uppercase leading-tight">
                     {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
                   </p>
-                  <p className="text-[10.5px] text-slate-600 mt-0.5">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
+                  <p className="text-[1.7cqw] text-slate-400 font-bold uppercase tracking-wider">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
                 </div>
               </div>
-              {/* Separator */}
-              <div className="w-full h-px bg-app-navy/30 mt-3" />
+              {/* Séparateur ultra fin */}
+              <div className="w-full h-[0.15cqw] bg-border mt-[2.7cqw]" />
             </div>
 
-            {/* ── TITLE ── */}
-            <div className="relative z-10 py-2 text-center shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
-              <p className="font-black text-[17px] text-app-navy tracking-tight">
-                {docType === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA'} : {proformaNumber}
+            {/* ── TITRE DU DOCUMENT ── */}
+            <div className="relative z-10 py-[1cqw] text-center shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <p className="font-black text-[2.5cqw] text-primary tracking-tight">
+                {docType === 'FACTURE' ? 'FACTURE N°' : 'PRO-FORMA N°'} {proformaNumber}
               </p>
             </div>
 
-            {/* ── CLIENT BAND ── */}
-            <div className="relative z-10 mb-2 bg-app-light-blue/60 px-3 py-2 shrink-0" style={{ marginLeft: '9.52%', marginRight: '9.52%' }}>
-              <p className="text-[10px] font-bold text-app-navy leading-none">Facture à</p>
-              <p className="text-[12px] font-black text-app-navy mt-0.5">
-                Client : {(client.name || 'NOM DU CLIENT').toUpperCase()}
+            {/* ── SECTION CLIENT (DESIGN PLAT ET ÉPURÉ) ── */}
+            <div className="relative z-10 mb-[2.7cqw] bg-slate-50/50 border border-border px-[2.7cqw] py-[2cqw] shrink-0 rounded-[2.7cqw]" style={{ marginLeft: '9.52%', marginRight: '9.52%' }}>
+              <p className="text-[1.5cqw] font-black text-slate-400 uppercase tracking-widest leading-none mb-[0.7cqw]">Client facturé</p>
+              <p className="text-[2cqw] font-black text-primary uppercase">
+                {(client.name || 'NOM DU CLIENT')}
               </p>
+              {client.phone && (
+                <p className="text-[1.5cqw] font-bold text-slate-400 uppercase tracking-wider mt-[0.3cqw]">
+                  Tél : {client.phone}
+                </p>
+              )}
             </div>
 
-            {/* ── TABLE — flex-1 pour occuper l'espace disponible ── */}
+            {/* ── TABLEAU DES PRODUITS/SERVICES ── */}
             <div className="relative z-10 flex-1 overflow-hidden" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
-              <table className="w-full border-collapse text-[10px]">
+              <table className="w-full border-collapse text-[1.7cqw]">
                 <thead>
-                  <tr className="bg-app-navy text-white">
-                    <th className="py-2 px-2.5 font-bold text-left border-r border-white/20">Description</th>
-                    <th className="py-2 px-2 font-bold text-center w-14 border-r border-white/20">Quantité</th>
-                    <th className="py-2 px-2.5 font-bold text-right w-24 border-r border-white/20">Prix unitaire</th>
-                    <th className="py-2 px-2.5 font-bold text-right w-24">Total</th>
+                  <tr className="bg-primary text-white">
+                    <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-left uppercase tracking-wider text-[1.3cqw] border-r border-white/10 rounded-l-[2cqw]">Description</th>
+                    <th className="py-[1.7cqw] px-[1.3cqw] font-bold text-center w-[10.7cqw] uppercase tracking-wider text-[1.3cqw] border-r border-white/10">Quantité</th>
+                    <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-right w-[16cqw] uppercase tracking-wider text-[1.3cqw] border-r border-white/10">Prix unitaire</th>
+                    <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-right w-[16cqw] uppercase tracking-wider text-[1.3cqw] rounded-r-[2cqw]">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item, i) => (
-                    <tr key={i} className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 text-app-navy border-r border-slate-200">{item.description || ''}</td>
-                      <td className="py-1.5 px-2 text-center text-app-navy border-r border-slate-200">{item.quantity}</td>
-                      <td className="py-1.5 px-2.5 text-right text-app-navy/70 border-r border-slate-200 whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
-                      <td className="py-1.5 px-2.5 text-right font-bold text-app-navy whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
+                    <tr key={i} className="border-b-[0.15cqw] border-border">
+                      <td className="py-[1.3cqw] px-[2.3cqw] text-primary font-medium border-r border-border">{item.description || 'Sans description'}</td>
+                      <td className="py-[1.3cqw] px-[1.3cqw] text-center text-primary font-bold border-r border-border">{item.quantity}</td>
+                      <td className="py-[1.3cqw] px-[2.3cqw] text-right text-slate-500 font-bold border-r border-border whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
+                      <td className="py-[1.3cqw] px-[2.3cqw] text-right font-black text-primary whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
                     </tr>
                   ))}
                   {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
-                    <tr key={`empty-${i}`} className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 border-r border-slate-200">&nbsp;</td>
-                      <td className="py-1.5 px-2 border-r border-slate-200">&nbsp;</td>
-                      <td className="py-1.5 px-2.5 border-r border-slate-200">&nbsp;</td>
-                      <td className="py-1.5 px-2.5">&nbsp;</td>
+                    <tr key={`empty-${i}`} className="border-b-[0.15cqw] border-border">
+                      <td className="py-[1.3cqw] px-[2.3cqw] border-r border-border">&nbsp;</td>
+                      <td className="py-[1.3cqw] px-[1.3cqw] border-r border-border">&nbsp;</td>
+                      <td className="py-[1.3cqw] px-[2.3cqw] border-r border-border">&nbsp;</td>
+                      <td className="py-[1.3cqw] px-[2.3cqw]">&nbsp;</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {/* ── TOTALS ── */}
-            <div className="relative z-10 mt-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
-              <div className="text-right text-[10px] text-slate-500 space-y-0.5">
+            {/* ── TOTALS ET REMISE ── */}
+            <div className="relative z-10 mt-[2cqw] shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <div className="text-right text-[1.7cqw] text-slate-400 space-y-[0.7cqw] font-semibold uppercase tracking-wider">
                 <p>Sous-total : {subtotal.toLocaleString()} F CFA</p>
                 {discountPercent > 0 && (
-                  <p>Remise : {discountAmount.toLocaleString()} F</p>
+                  <p className="text-destructive">Remise ({discountPercent}%) : -{discountAmount.toLocaleString()} F CFA</p>
                 )}
               </div>
-              <div className="bg-app-yellow flex items-center justify-end px-3 py-2">
-                <span className="font-black text-[13px] text-app-navy">
-                  Total HT : {total.toLocaleString()} F CFA
+              <div className="bg-accent text-white flex items-center justify-end px-[2.7cqw] py-[2cqw] rounded-[2.7cqw] mt-[1.7cqw] shadow-sm">
+                <span className="font-black text-[2cqw] uppercase tracking-widest">
+                  Total Net : {total.toLocaleString()} F CFA
                 </span>
               </div>
             </div>
 
-            {/* ── AMOUNT IN WORDS ── */}
-            <div className="relative z-10 mt-2 shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
-              <p className="text-[10px] italic text-slate-600">
-                Arrêtée la présente facture à la somme de : <span className="font-bold text-app-navy uppercase">{
+            {/* ── SOMME EN LETTRES ── */}
+            <div className="relative z-10 mt-[2cqw] shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+              <p className="text-[1.5cqw] italic text-slate-500 font-semibold leading-relaxed">
+                Arrêtée la présente facture à la somme de : <span className="font-black text-primary uppercase">{
                   (() => {
                     const n = Math.round(total);
                     if (n === 0) return 'ZÉRO';
@@ -1054,43 +1266,43 @@ export default function App() {
                     if(R>0) s+=b1000(R);
                     return s.trim();
                   })()
-                }</span>
+                } FRANCS CFA</span>
               </p>
             </div>
 
-            {/* ── SIGNATURE ZONE ── */}
-            <div className="relative z-10 mt-3 flex justify-end items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
+            {/* ── ZONE DE SIGNATURE ET CACHET ── */}
+            <div className="relative z-10 mt-[2cqw] flex justify-end items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
               <div className="text-right flex flex-col items-end">
                 {(companyInfo.stamp || companyInfo.signature) && (
-                  <div className="flex items-end justify-end gap-3">
+                  <div className="flex items-end justify-end gap-[2.7cqw] bg-slate-50/20 p-[1.3cqw] rounded-[2.7cqw] border-[0.15cqw] border-border/30">
                     {companyInfo.stamp && (
                       <img src={companyInfo.stamp} alt="Cachet"
                         className="object-contain mix-blend-multiply opacity-80"
-                        style={{ height: `${(companyInfo.stampHeight || 25) * 3.0}px` }} />
+                        style={{ height: `${(companyInfo.stampHeight || 25) * 0.5}cqw` }} />
                     )}
                     {companyInfo.signature && (
                       <img src={companyInfo.signature} alt="Signature"
                         className="object-contain mix-blend-multiply"
-                        style={{ height: `${(companyInfo.signatureHeight || 25) * 3.0}px` }} />
+                        style={{ height: `${(companyInfo.signatureHeight || 25) * 0.5}cqw` }} />
                     )}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* ── FOOTER ── */}
-            <div className="relative z-10 mt-3 flex justify-center items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingBottom: '6.73%' }}>
+            {/* ── FOOTER DE LA MAQUETTE ── */}
+            <div className="relative z-10 mt-[2cqw] flex justify-center items-end shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingBottom: '6.73%' }}>
               <div className="text-center">
                 {companyInfo.services && (
-                  <p className="text-[9.5px] font-bold text-app-navy leading-snug">
-                    NOS SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
+                  <p className="text-[1.5cqw] font-black text-primary leading-snug">
+                    SERVICES : {companyInfo.services.split('\n').filter(Boolean).join(', ')}
                   </p>
                 )}
               </div>
             </div>
 
-            {/* Navy bottom band */}
-            <div className="relative z-10 w-full h-3 bg-app-navy shrink-0" />
+            {/* Bande de pied de page fine et élégante */}
+            <div className="relative z-10 w-full h-[1.3cqw] bg-primary shrink-0" />
           </div>
         </section>
       </main>

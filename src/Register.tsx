@@ -109,197 +109,198 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-app-light-blue/30 via-white to-app-yellow/20 flex items-center justify-center p-4">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-app-yellow/10 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-app-light-blue/20 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+      {/* Motifs géométriques discrets en arrière-plan */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+        <div className="absolute -top-40 -right-40 w-96 h-96 border border-border rounded-full" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 border border-border rounded-full" />
       </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-in-up">
-        {/* Back Button */}
+        {/* Bouton retour minimaliste */}
         <button
           onClick={onBackToLogin}
-          className="flex items-center gap-2 text-slate-600 hover:text-app-navy mb-4 font-medium transition-colors"
+          className="flex items-center gap-2 text-slate-500 hover:text-primary mb-6 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={14} />
           <span>Retour à la connexion</span>
         </button>
 
-        {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl shadow-app-navy/10 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-app-navy to-app-navy/90 p-8 text-center">
-            <div className="w-16 h-16 bg-app-yellow rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg animate-fade-in-scale">
-              <span className="text-3xl font-black text-app-navy">X</span>
+        {/* Conteneur principal style carte minimale */}
+        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+          
+          {/* En-tête minimaliste */}
+          <div className="p-8 text-center pb-4 pt-10">
+            <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
+              <span className="text-3xl font-black">X</span>
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight mb-2">Créer un compte</h1>
-            <p className="text-app-light-blue/80 text-sm font-medium">Rejoignez XorForm dès aujourd'hui</p>
+            <h1 className="text-4xl font-black text-primary tracking-tight mb-2">Créer un compte</h1>
+            <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">Rejoignez XorForm</p>
           </div>
 
-          {/* Form */}
-          <div className="p-8">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+          {/* Formulaire d'inscription */}
+          <div className="px-8 pb-8 pt-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Nom Complet */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Nom complet
                 </label>
                 <div className="relative">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Jean Dupont"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/20 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm font-medium"
                   />
                 </div>
               </div>
 
-              {/* Email */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-                  Email professionnel
+              {/* Adresse E-mail */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Adresse e-mail
                 </label>
                 <div className="relative">
-                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="jean@entreprise.com"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/20 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm font-medium"
                   />
                 </div>
               </div>
 
-              {/* Company */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+              {/* Entreprise */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Nom de l'entreprise
                 </label>
                 <div className="relative">
-                  <Building size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Building size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
                     value={formData.company}
                     onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                     placeholder="Mon Entreprise SARL"
-                    className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/20 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-4 py-3 bg-slate-50/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm font-medium"
                   />
                 </div>
               </div>
 
-              {/* Password */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+              {/* Mot de passe */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Mot de passe
                 </label>
                 <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/20 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-12 py-3 bg-slate-50/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm font-medium"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-app-navy transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors cursor-pointer"
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Minimum 6 caractères</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-1">6 caractères minimum</p>
               </div>
 
-              {/* Confirm Password */}
-              <div className="space-y-2">
-                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+              {/* Confirmation Mot de passe */}
+              <div className="space-y-1.5">
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Confirmer le mot de passe
                 </label>
                 <div className="relative">
-                  <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type={showConfirmPassword ? 'text' : 'password'}
                     value={formData.confirmPassword}
                     onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                     placeholder="••••••••"
-                    className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-app-navy/20 focus:border-app-navy outline-none transition-all text-sm font-medium"
+                    className="w-full pl-12 pr-12 py-3 bg-slate-50/50 border border-border rounded-xl focus:ring-2 focus:ring-primary/10 focus:border-primary outline-none transition-all text-sm font-medium"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-app-navy transition-colors"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors cursor-pointer"
                   >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
               </div>
 
-              {/* Error Message */}
+              {/* Messages d'erreur */}
               {error && (
-                <div className="animate-fade-in-down bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium">
+                <div className="animate-fade-in-down bg-red-50 border border-red-100 text-destructive px-4 py-3 rounded-xl text-xs font-semibold">
                   {error}
                 </div>
               )}
 
-              {/* Terms */}
+              {/* Conditions d'utilisation */}
               <div className="flex items-start gap-3 pt-2">
                 <input
                   type="checkbox"
                   id="terms"
                   checked={acceptTerms}
                   onChange={(e) => setAcceptTerms(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 rounded border-slate-300 text-app-navy focus:ring-app-navy/20 cursor-pointer"
+                  className="w-4 h-4 mt-0.5 rounded border-border text-primary accent-primary focus:ring-primary/10 cursor-pointer"
                 />
-                <label htmlFor="terms" className="text-xs text-slate-600 leading-relaxed cursor-pointer">
+                <label htmlFor="terms" className="text-xs text-slate-500 leading-relaxed cursor-pointer font-medium">
                   J'accepte les{' '}
-                  <button type="button" className="text-app-navy font-bold hover:underline">
+                  <button type="button" className="text-primary font-bold hover:underline cursor-pointer">
                     conditions d'utilisation
                   </button>
                   {' '}et la{' '}
-                  <button type="button" className="text-app-navy font-bold hover:underline">
+                  <button type="button" className="text-primary font-bold hover:underline cursor-pointer">
                     politique de confidentialité
                   </button>
                 </label>
               </div>
 
-              {/* Submit Button */}
+              {/* Bouton d'inscription */}
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-app-navy text-white py-4 rounded-xl font-bold text-sm hover:bg-app-navy/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-app-navy/20 flex items-center justify-center gap-2 group mt-6"
+                className="w-full bg-primary hover:bg-primary/95 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group cursor-pointer shadow-sm mt-6"
               >
                 {isLoading ? (
                   <>
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Création en cours...</span>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Création...</span>
                   </>
                 ) : (
                   <>
                     <span>Créer mon compte</span>
-                    <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+                    <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
                   </>
                 )}
               </button>
             </form>
 
-            {/* Login Link */}
-            <p className="text-center text-sm text-slate-500 mt-6">
+            {/* Lien de connexion */}
+            <p className="text-center text-xs text-slate-500 mt-8">
               Vous avez déjà un compte ?{' '}
-              <button onClick={onBackToLogin} className="text-app-navy font-bold hover:underline">
+              <button onClick={onBackToLogin} className="text-primary font-bold hover:underline cursor-pointer">
                 Se connecter
               </button>
             </p>
           </div>
         </div>
 
-        {/* Footer */}
-        <p className="text-center text-xs text-slate-400 mt-6">
+        {/* Pied de page */}
+        <p className="text-center text-[10px] text-slate-400 mt-8">
           © 2026 XorForm. Tous droits réservés.
         </p>
       </div>

@@ -5,10 +5,21 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", ui-serif, Georgia, serif;
 
-  --color-app-navy: #0a1f2c;
-  --color-app-yellow: #ffcc00;
-  --color-app-light-blue: #c0e0e7;
-  --color-app-black: #000000;
+  --color-primary: #1E3A5F;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #2563EB;
+  --color-accent: #059669;
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  --color-muted: #F1F3F5;
+  --color-border: #E2E8F0;
+  --color-destructive: #EF4444;
+
+  /* Rétro-compatibilité avec les anciennes classes pendant la refonte */
+  --color-app-navy: #1E3A5F;
+  --color-app-yellow: #059669;
+  --color-app-light-blue: #E2E8F0;
+  --color-app-black: #0F172A;
 }
 
 /* ============================================================

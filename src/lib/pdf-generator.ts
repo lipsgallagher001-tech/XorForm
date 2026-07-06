@@ -69,11 +69,11 @@ const optimizeImage = async (
     img.src = base64;
   });
 
-// ─── couleurs ────────────────────────────────────────────────────────────────
-const NAVY   = [10,  31,  44] as const;
-const YELLOW = [255, 204,   0] as const;
-const LBLUE  = [192, 224, 231] as const;
-const WHITE  = [255, 255, 255] as const;
+// ─── couleurs du système de design (Exaggerated Minimalism) ─────────────────
+const PRIMARY = [30, 58, 95] as const;      // Navy professionnel #1E3A5F
+const ACCENT  = [5, 150, 105] as const;      // Vert émeraude #059669
+const MUTED   = [241, 245, 249] as const;    // Gris clair neutre #F1F5F9
+const WHITE   = [255, 255, 255] as const;
 
 // ─── générateur ──────────────────────────────────────────────────────────────
 
@@ -108,14 +108,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       const opt = await optimizeImage(company.logo, 400);
       doc.addImage(opt.data, opt.format, M, y, logoW, logoH, undefined, 'FAST');
     } catch {
-      doc.setFillColor(...NAVY);
+      doc.setFillColor(...PRIMARY);
       doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
       doc.setTextColor(...WHITE);
       doc.setFontSize(13); doc.setFont('helvetica', 'bold');
       doc.text(company.name.charAt(0).toUpperCase(), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
     }
   } else {
-    doc.setFillColor(...NAVY);
+    doc.setFillColor(...PRIMARY);
     doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
     doc.setTextColor(...WHITE);
     doc.setFontSize(13); doc.setFont('helvetica', 'bold');
@@ -124,7 +124,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // Infos entreprise
   const infoX = M + logoW + 5;
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
   doc.text(company.name, infoX, y + 5);
 
@@ -135,7 +135,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   infoLines.forEach((line, i) => doc.text(line, infoX, y + 12 + i * 4.8));
 
   // Droite
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
   doc.text(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA', PW - M, y + 5, { align: 'right' });
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
@@ -143,22 +143,22 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.text(`Date : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`, PW - M, y + 12, { align: 'right' });
 
   y += Math.max(logoH, 24) + 5;
-  doc.setDrawColor(...NAVY); doc.setLineWidth(0.3);
+  doc.setDrawColor(...PRIMARY); doc.setLineWidth(0.3);
   doc.line(M, y, PW - M, y);
   y += 12;
 
   // ── 2. TITRE ───────────────────────────────────────────────────────────────
   doc.setFontSize(18); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   const label = proforma.type === 'FACTURE' ? 'N° DE FACTURE' : 'N° PRO-FORMA';
   doc.text(`${label} : ${proforma.number}`, PW / 2, y, { align: 'center' });
   y += 10;
 
   // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
   const clientH = 16;
-  doc.setFillColor(...LBLUE);
+  doc.setFillColor(...MUTED);
   doc.rect(M, y, PW - 2 * M, clientH, 'F');
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...PRIMARY);
   doc.setFontSize(9); doc.setFont('helvetica', 'bold');
   doc.text('Facture à', M + 3, y + 5.5);
   doc.setFontSize(11);
@@ -193,19 +193,19 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [...NAVY] as [number, number, number],
+      fillColor: [...PRIMARY] as [number, number, number],
       textColor: [...WHITE] as [number, number, number],
       fontSize: 10,
       fontStyle: 'bold',
       halign: 'left',
       cellPadding: 3.5,
-      lineColor: [...NAVY] as [number, number, number],
+      lineColor: [...PRIMARY] as [number, number, number],
       lineWidth: 0.1,
     },
     styles: {
       fontSize: 10,
       cellPadding: 3.5,
-      textColor: [...NAVY] as [number, number, number],
+      textColor: [...PRIMARY] as [number, number, number],
       lineColor: [210, 210, 210],
       lineWidth: 0.1,
       minCellHeight: ROW_H,
@@ -237,9 +237,9 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   }
 
   const barH = 12;
-  doc.setFillColor(...YELLOW);
+  doc.setFillColor(...ACCENT);
   doc.rect(M, y, PW - 2 * M, barH, 'F');
-  doc.setTextColor(...NAVY);
+  doc.setTextColor(...WHITE);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
   doc.text(`Total HT : ${fmtCur(totalHT)} CFA`, PW - M - 3, y + 8.5, { align: 'right' });
   y += barH + 5;
@@ -282,14 +282,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   if (company.services) {
     const sLines = company.services.split('\n').filter(Boolean);
     doc.setFontSize(10); doc.setFont('helvetica', 'bolditalic');
-    doc.setTextColor(...NAVY);
+    doc.setTextColor(...PRIMARY);
     doc.text(`NOS SERVICES : ${sLines.join(', ')}`, PW / 2, footerY, {
       align: 'center',
       maxWidth: PW - 2 * M
     });
   }
 
-  doc.setFillColor(...NAVY);
+  doc.setFillColor(...PRIMARY);
   doc.rect(0, PH - 5, PW, 5, 'F');
 
   return doc;
