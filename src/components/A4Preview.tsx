@@ -72,8 +72,8 @@ export default function A4Preview({
         {/* ── EN-TÊTE DE FACTURATION ── */}
         <div className="relative z-10 pb-[2.7cqw] shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%', paddingTop: '6.73%' }}>
           <div className="flex justify-between items-start">
-            {/* Gauche: Logo et informations sur l'entreprise */}
-            <div className="flex items-start gap-[2.7cqw]">
+            {/* Gauche: Logo et informations sur l'entreprise — centrés verticalement */}
+            <div className="flex items-center gap-[2.7cqw]">
               {companyInfo.logo ? (
                 <img
                   src={companyInfo.logo}
@@ -94,39 +94,53 @@ export default function A4Preview({
                 <p className="text-[1.7cqw] text-slate-400 font-semibold leading-relaxed">{companyInfo.address}</p>
                 <p className="text-[1.7cqw] text-slate-500 font-bold leading-relaxed">{companyInfo.phone}</p>
                 <p className="text-[1.7cqw] text-secondary font-semibold leading-relaxed">{companyInfo.email}</p>
-                {companyInfo.siret && <p className="text-[1.3cqw] text-slate-400 font-medium leading-relaxed">SIRET: {companyInfo.siret}</p>}
+                {/* SIRET/SIREN/RCS affichés à droite sous la date */}
               </div>
             </div>
-            {/* Droite: Type de document et date */}
+            {/* Droite: Type de document et identifiants légaux (date déplacée dans le bandeau client) */}
             <div className="text-right shrink-0 space-y-[0.7cqw]">
               <p className="font-black text-[2.3cqw] text-primary tracking-widest uppercase leading-tight">
                 {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
               </p>
-              <p className="text-[1.7cqw] text-slate-400 font-bold uppercase tracking-wider">Date : {format(new Date(proformaDate), 'dd/MM/yyyy')}</p>
+              {/* Identifiants légaux */}
+              {companyInfo.siret && <p className="text-[1.4cqw] text-slate-400 font-semibold">SIRET : {companyInfo.siret}</p>}
+              {companyInfo.siren && <p className="text-[1.4cqw] text-slate-400 font-semibold">SIREN : {companyInfo.siren}</p>}
+              {companyInfo.rcs   && <p className="text-[1.4cqw] text-slate-400 font-semibold">RCS : {companyInfo.rcs}</p>}
             </div>
           </div>
           {/* Séparateur ultra fin */}
           <div className="w-full h-[0.15cqw] bg-border mt-[2.7cqw]" />
         </div>
 
-        {/* ── TITRE DU DOCUMENT ── */}
-        <div className="relative z-10 py-[1cqw] text-center shrink-0" style={{ paddingLeft: '9.52%', paddingRight: '9.52%' }}>
-          <p className="font-black text-[2.5cqw] text-primary tracking-tight">
-            {docType === 'FACTURE' ? 'FACTURE N°' : 'PRO-FORMA N°'} {proformaNumber}
-          </p>
-        </div>
-
-        {/* ── SECTION CLIENT (DESIGN PLAT ET ÉPURÉ) ── */}
+        {/* ── SECTION CLIENT avec numéro de document à droite ── */}
         <div className="relative z-10 mb-[2.7cqw] bg-slate-50/50 border border-border px-[2.7cqw] py-[2cqw] shrink-0 rounded-[2.7cqw]" style={{ marginLeft: '9.52%', marginRight: '9.52%' }}>
-          <p className="text-[1.5cqw] font-black text-slate-400 uppercase tracking-widest leading-none mb-[0.7cqw]">Client facturé</p>
-          <p className="text-[2cqw] font-black text-primary uppercase">
-            {(client.name || 'NOM DU CLIENT')}
-          </p>
-          {client.phone && (
-            <p className="text-[1.5cqw] font-bold text-slate-400 uppercase tracking-wider mt-[0.3cqw]">
-              Tél : {client.phone}
+          {/* Ligne supérieure : label client + type de document */}
+          <div className="flex items-center justify-between">
+            <p className="text-[1.5cqw] font-black text-slate-400 uppercase tracking-widest leading-none">Client facturé</p>
+            <p className="text-[1.5cqw] font-black text-slate-400 uppercase tracking-widest leading-none">{docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}</p>
+          </div>
+          {/* Ligne du nom : nom client + numéro sur la même ligne */}
+          <div className="flex items-baseline justify-between mt-[0.7cqw]">
+            <p className="text-[2cqw] font-black text-primary uppercase">
+              {(client.name || 'NOM DU CLIENT')}
             </p>
-          )}
+            <p className="text-[2cqw] font-black text-primary">
+              N° {proformaNumber}
+            </p>
+          </div>
+          {/* Ligne téléphone + date sur la même rangée */}
+          <div className="flex items-center justify-between mt-[0.3cqw]">
+            <div>
+              {client.phone && (
+                <p className="text-[1.5cqw] font-bold text-slate-400 uppercase tracking-wider">
+                  Tél : {client.phone}
+                </p>
+              )}
+            </div>
+            <p className="text-[1.5cqw] font-bold text-slate-400 uppercase tracking-wider">
+              {format(new Date(proformaDate), 'dd/MM/yyyy')}
+            </p>
+          </div>
         </div>
 
         {/* ── TABLEAU DES PRODUITS/SERVICES ── */}

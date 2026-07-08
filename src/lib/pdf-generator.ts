@@ -150,79 +150,100 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const logoW = (company.logoWidth  || 18) * scaleFactor;
   const logoH = (company.logoHeight || 18) * scaleFactor;
 
+  // Calcul de la hauteur du bloc texte pour centrage vertical avec le logo
+  // Bloc texte : nom (offset 4mm) + 3 lignes d'info espacées de 4.5mm → ~17.5mm
+  const TEXT_BLOCK_H = 4 + 3 * 4.5; // ≈ 17.5 mm
+  const headerBlockH = Math.max(logoH, TEXT_BLOCK_H);
+
+  // Offset vertical pour centrer le logo par rapport au bloc texte
+  const logoOffsetY = (headerBlockH - logoH) / 2;
+  // Offset vertical pour centrer le texte par rapport au logo
+  const textOffsetY = (headerBlockH - TEXT_BLOCK_H) / 2;
+
   if (company.logo) {
     try {
       const opt = await optimizeImage(company.logo, 400);
-      doc.addImage(opt.data, opt.format, M, y, logoW, logoH, undefined, 'FAST');
+      doc.addImage(opt.data, opt.format, M, y + logoOffsetY, logoW, logoH, undefined, 'FAST');
     } catch {
       doc.setFillColor(...PRIMARY);
-      doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
+      doc.roundedRect(M, y + logoOffsetY, logoW, logoH, 1.5, 1.5, 'F');
       doc.setTextColor(...WHITE);
       doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-      doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
+      doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoOffsetY + logoH / 2 + 4, { align: 'center' });
     }
   } else {
     doc.setFillColor(...PRIMARY);
-    doc.roundedRect(M, y, logoW, logoH, 1.5, 1.5, 'F');
+    doc.roundedRect(M, y + logoOffsetY, logoW, logoH, 1.5, 1.5, 'F');
     doc.setTextColor(...WHITE);
     doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-    doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoH / 2 + 4, { align: 'center' });
+    doc.text(cleanText(company.name.charAt(0).toUpperCase()), M + logoW / 2, y + logoOffsetY + logoH / 2 + 4, { align: 'center' });
   }
 
-  // Infos entreprise
+  // Infos entreprise (alignées verticalement avec le logo)
   const infoX = M + logoW + 5;
+  const nameY  = y + textOffsetY + 4;  // Nom de l'entreprise
+  const infoY0 = y + textOffsetY + 10; // Première ligne d'info
+
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(company.name), infoX, y + 4);
+  doc.text(cleanText(company.name), infoX, nameY);
 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.setTextColor(100, 116, 139); // slate-400 (#94A3B8 / slate-500)
   const infoLines: string[] = [company.address, company.phone, company.email];
-  if (company.siret) infoLines.push(`SIRET: ${company.siret}`);
-  infoLines.forEach((line, i) => doc.text(cleanText(line), infoX, y + 10 + i * 4.5));
+  // SIRET/SIREN/RCS affichés à droite sous le type de document — pas répétés ici
+  infoLines.forEach((line, i) => doc.text(cleanText(line), infoX, infoY0 + i * 4.5));
 
-  // Droite (Type de document et date)
+
+  // Droite (Type de document et identifiants légaux — date déplacée dans le bandeau client)
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(13); doc.setFont('helvetica', 'bold');
   doc.text(cleanText(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'), PW - M, y + 4, { align: 'right' });
-  doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5);
+
+  // Identifiants légaux sous le type de document (SIRET, SIREN, RCS)
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184); // slate-400
-  doc.text(cleanText(`DATE : ${format(new Date(proforma.date), 'dd/MM/yyyy')}`), PW - M, y + 10, { align: 'right' });
+  let legalY = y + 10;
+  if (company.siret) { doc.text(cleanText(`SIRET : ${company.siret}`), PW - M, legalY, { align: 'right' }); legalY += 4; }
+  if (company.siren) { doc.text(cleanText(`SIREN : ${company.siren}`), PW - M, legalY, { align: 'right' }); legalY += 4; }
+  if (company.rcs)   { doc.text(cleanText(`RCS : ${company.rcs}`),   PW - M, legalY, { align: 'right' }); }
 
   y += Math.max(logoH, 24) + 4;
   doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2); // border-border
   doc.line(M, y, PW - M, y);
   y += 10;
 
-  // ── 2. TITRE ───────────────────────────────────────────────────────────────
-  doc.setFontSize(15); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...PRIMARY);
-  const label = proforma.type === 'FACTURE' ? 'FACTURE N°' : 'PRO-FORMA N°';
-  doc.text(cleanText(`${label} ${proforma.number}`), PW / 2, y, { align: 'center' });
-  y += 8;
-
-  // ── 3. BANDEAU CLIENT ──────────────────────────────────────────────────────
+  // ── 2. BANDEAU CLIENT (numéro + date à droite) ────────────────────────────
   const hasPhone = !!proforma.client.phone;
-  const clientH = hasPhone ? 19 : 14;
+  // Hauteur : ligne label(4.5) + ligne nom(5.5) + ligne tél/date(5) + marges
+  const clientH = 19;
+  const docLabel = proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA';
 
   doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
   doc.setFillColor(248, 250, 252); // #F8FAFC (slate-50/50)
   doc.setLineWidth(0.15);
   doc.roundedRect(M, y, PW - 2 * M, clientH, 4.5, 4.5, 'FD'); // Coins arrondis avec bordure et remplissage
 
+  // Ligne supérieure : "CLIENT FACTURÉ" à gauche, type de document à droite
   doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
   doc.setFontSize(8); doc.setFont('helvetica', 'bold');
   doc.text(cleanText('CLIENT FACTURÉ'), M + 4, y + 4.5);
+  doc.text(cleanText(docLabel), PW - M - 4, y + 4.5, { align: 'right' });
 
+  // Ligne du nom : nom client à gauche, numéro à droite (même ligne)
   doc.setTextColor(...PRIMARY);
   doc.setFontSize(10.5); doc.setFont('helvetica', 'bold');
   doc.text(cleanText(proforma.client.name.toUpperCase()), M + 4, y + 10);
+  doc.text(cleanText(`N° ${proforma.number}`), PW - M - 4, y + 10, { align: 'right' });
 
+  // Ligne inférieure : téléphone à gauche, date à droite
+  doc.setTextColor(148, 163, 184); // #94A3B8
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
   if (hasPhone) {
-    doc.setTextColor(148, 163, 184); // #94A3B8
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
     doc.text(cleanText(`TÉL : ${proforma.client.phone}`), M + 4, y + 15);
   }
+  doc.text(cleanText(format(new Date(proforma.date), 'dd/MM/yyyy')), PW - M - 4, y + 15, { align: 'right' });
+
   y += clientH + 5;
 
   // ── 4. TABLEAU ─────────────────────────────────────────────────────────────
@@ -248,13 +269,12 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     body: tableData,
     theme: 'grid',
     headStyles: {
-      fillColor: [...PRIMARY] as [number, number, number],
+      fillColor: false, // Fond transparent pour afficher le rectangle arrondi personnalisé
       textColor: [...WHITE] as [number, number, number],
       fontSize: 9.5,
       fontStyle: 'bold',
       cellPadding: 3.5,
-      lineColor: [255, 255, 255, 0.15],
-      lineWidth: 0.15,
+      lineWidth: 0, // Pas de bordure automatique pour éviter les coins carrés
     },
     styles: {
       fontSize: 9.5,
@@ -270,6 +290,37 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       2: { halign: 'right',  cellWidth: 36 },
       3: { halign: 'right',  cellWidth: 36, fontStyle: 'bold' },
     },
+    willDrawCell: (data) => {
+      // Dessiner le fond bleu arrondi pour l'en-tête entier lors du traitement de la première cellule
+      if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
+        doc.setFillColor(...PRIMARY);
+        // PW - 2*M = largeur réelle du tableau (marges left=M, right=M)
+        // data.cell.height = hauteur de la cellule d'en-tête (data.row.height non dispo dans willDrawCell)
+        doc.roundedRect(
+          data.cell.x,
+          data.cell.y,
+          PW - 2 * M,
+          data.cell.height,
+          3.0, // Rayon horizontal des coins arrondis
+          3.0, // Rayon vertical des coins arrondis
+          'F'
+        );
+      }
+    },
+    didDrawCell: (data) => {
+      // Dessiner de fines séparations verticales blanches entre les colonnes de l'en-tête
+      // Couleur mélangée [53, 78, 111] correspondant à 10% d'opacité du blanc sur le fond navy PRIMARY [30, 58, 95]
+      if (data.section === 'head' && data.column.index < 3) {
+        doc.setDrawColor(53, 78, 111);
+        doc.setLineWidth(0.15);
+        doc.line(
+          data.cell.x + data.cell.width,
+          data.cell.y,
+          data.cell.x + data.cell.width,
+          data.cell.y + data.cell.height
+        );
+      }
+    }
   });
 
   y = (doc as any).lastAutoTable.finalY;
@@ -314,7 +365,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // ── 7. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
   const footerY = PH - 5 - 10;
   const sigLabelY = company.services 
-    ? footerY - maxImgH - 6
+    ? footerY - maxImgH - 14  // Espace de 14 mm entre la signature et le texte des services
     : PH - 5 - 10 - maxImgH - 4;
 
   if (hasSig) {
