@@ -37,7 +37,7 @@ export const ClientInfoSchema = z.object({
 export const ProformaSchema = z.object({
   id: z.string().min(1, "ID requis"),
   type: z.enum(['PROFORMA', 'FACTURE'], {
-    errorMap: () => ({ message: "Type doit être PROFORMA ou FACTURE" })
+    message: "Type doit être PROFORMA ou FACTURE"
   }),
   number: z.string().min(1, "Numéro de document requis"),
   date: z.string().refine(

@@ -90,7 +90,7 @@ export default function A4Preview({
             </div>
             <div className="text-right shrink-0 space-y-[0.4cqw]">
               <p className="text-[1.2cqw] font-bold text-slate-300 uppercase tracking-[0.3em] leading-none">
-                {docType === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'}
+                {docType === 'FACTURE' ? '· FACTURE' : '· PRO-FORMA'}
               </p>
               <p className="font-black text-[3cqw] text-primary leading-none tracking-tight">
                 {docType === 'FACTURE' ? 'Facture' : 'Pro-Forma'}
@@ -107,7 +107,7 @@ export default function A4Preview({
         <div className="relative z-10 mb-[2.5cqw] shrink-0 border-l-[0.5cqw] border-primary bg-primary/[0.03] px-[2.7cqw] py-[2cqw]"
           style={{ marginLeft: '10.5%', marginRight: '9.52%' }}>
           <div className="flex items-center justify-between">
-            <p className="text-[1.3cqw] font-black text-slate-400 uppercase tracking-widest leading-none">Facture a</p>
+            <p className="text-[1.3cqw] font-black text-slate-400 uppercase tracking-widest leading-none">Facture à</p>
             <span className="bg-primary text-white text-[1.2cqw] font-black px-[1.5cqw] py-[0.5cqw] rounded-full tracking-wider leading-none">
               N&deg; {proformaNumber}
             </span>
@@ -123,7 +123,7 @@ export default function A4Preview({
                 </p>
               )}
               <span className="text-[1.2cqw] font-black text-slate-300 uppercase tracking-[0.2em]">
-                {docType === 'FACTURE' ? '� FACTURE' : '� PRO-FORMA'}
+                {docType === 'FACTURE' ? '� FACTURE' : '� PRO-FORMA'}
               </span>
             </div>
             <p className="text-[1.4cqw] font-semibold text-slate-400 uppercase tracking-wider">
@@ -138,7 +138,7 @@ export default function A4Preview({
             <thead>
               <tr className="bg-primary text-white">
                 <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-left uppercase tracking-wider text-[1.2cqw] border-r border-white/10 rounded-l-[1.5cqw]">Description</th>
-                <th className="py-[1.7cqw] px-[1.3cqw] font-bold text-center w-[10.7cqw] uppercase tracking-wider text-[1.2cqw] border-r border-white/10">Qte</th>
+                <th className="py-[1.7cqw] px-[1.3cqw] font-bold text-center w-[10.7cqw] uppercase tracking-wider text-[1.2cqw] border-r border-white/10">Qté</th>
                 <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-right w-[16cqw] uppercase tracking-wider text-[1.2cqw] border-r border-white/10">Prix unit.</th>
                 <th className="py-[1.7cqw] px-[2.3cqw] font-bold text-right w-[16cqw] uppercase tracking-wider text-[1.2cqw] rounded-r-[1.5cqw]">Total</th>
               </tr>
@@ -148,16 +148,8 @@ export default function A4Preview({
                 <tr key={i} className={`border-b-[0.15cqw] border-border ${i % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}`}>
                   <td className="py-[1.3cqw] px-[2.3cqw] text-primary font-medium border-r border-border">{item.description || 'Sans description'}</td>
                   <td className="py-[1.3cqw] px-[1.3cqw] text-center text-primary font-bold border-r border-border">{item.quantity}</td>
-                  <td className="py-[1.3cqw] px-[2.3cqw] text-right text-slate-500 font-semibold border-r border-border whitespace-nowrap">{item.unitPrice.toLocaleString()} F</td>
-                  <td className="py-[1.3cqw] px-[2.3cqw] text-right font-black text-primary whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString()} F</td>
-                </tr>
-              ))}
-              {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
-                <tr key={`empty-${i}`} className={`border-b-[0.15cqw] border-border ${(items.length + i) % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}`}>
-                  <td className="py-[1.3cqw] px-[2.3cqw] border-r border-border">&nbsp;</td>
-                  <td className="py-[1.3cqw] px-[1.3cqw] border-r border-border">&nbsp;</td>
-                  <td className="py-[1.3cqw] px-[2.3cqw] border-r border-border">&nbsp;</td>
-                  <td className="py-[1.3cqw] px-[2.3cqw]">&nbsp;</td>
+                  <td className="py-[1.3cqw] px-[2.3cqw] text-right text-slate-500 font-semibold border-r border-border whitespace-nowrap">{item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F</td>
+                  <td className="py-[1.3cqw] px-[2.3cqw] text-right font-black text-primary whitespace-nowrap">{(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F</td>
                 </tr>
               ))}
             </tbody>
@@ -181,7 +173,7 @@ export default function A4Preview({
           <div className="flex items-center justify-between mt-[1cqw] px-[0.5cqw]">
             <div className="flex items-center gap-[0.8cqw]">
               <div className="w-[0.3cqw] h-[1.5cqw] bg-accent rounded-full" />
-              <span className="text-[1.3cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte a verser (75%)</span>
+              <span className="text-[1.3cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte à verser (75%)</span>
             </div>
             <span className="text-[1.6cqw] font-black text-accent">{acompte.toLocaleString()} F CFA</span>
           </div>
@@ -191,7 +183,7 @@ export default function A4Preview({
         <div className="relative z-10 mt-[1.5cqw] shrink-0" style={{ paddingLeft: '10.5%', paddingRight: '9.52%' }}>
           <div className="bg-slate-50/70 rounded-[1.5cqw] px-[2cqw] py-[1.2cqw]">
             <p className="text-[1.4cqw] italic text-slate-500 font-semibold leading-relaxed">
-              Arretee la presente facture a la somme de : <span className="font-black text-primary uppercase">{convertNumberToWords(Math.round(total))} FRANCS CFA</span>
+              Arrêtée la présente facture à la somme de : <span className="font-black text-primary uppercase">{convertNumberToWords(Math.round(total))} FRANCS CFA</span>
             </p>
           </div>
         </div>
@@ -201,31 +193,31 @@ export default function A4Preview({
           <div className="border border-border rounded-[2cqw] overflow-hidden">
             <div className="bg-primary/8 border-b border-border px-[2cqw] py-[1cqw] flex items-center gap-[1.2cqw]">
               <div className="w-[0.4cqw] h-[2.2cqw] bg-primary rounded-full shrink-0" />
-              <p className="text-[1.3cqw] font-black text-primary uppercase tracking-widest leading-none">Conditions Generales</p>
+              <p className="text-[1.3cqw] font-black text-primary uppercase tracking-widest leading-none">Conditions Générales</p>
             </div>
             <div className="px-[2cqw] py-[1.3cqw] grid grid-cols-2 gap-x-[2.7cqw] gap-y-[0.7cqw]">
               <div className="flex items-start gap-[0.8cqw]">
                 <span className="text-[1.3cqw] text-primary font-black leading-none mt-[0.2cqw] shrink-0">&#8594;</span>
                 <p className="text-[1.2cqw] text-slate-500 font-semibold leading-snug">
-                  <span className="text-primary font-black">75% d'acompte</span> exige avant le debut des travaux &mdash; solde a la livraison.
+                  <span className="text-primary font-black">75% d'acompte</span> exigé avant le début des travaux &mdash; solde à la livraison.
                 </p>
               </div>
               <div className="flex items-start gap-[0.8cqw]">
                 <span className="text-[1.3cqw] text-primary font-black leading-none mt-[0.2cqw] shrink-0">&#8594;</span>
                 <p className="text-[1.2cqw] text-slate-500 font-semibold leading-snug">
-                  <span className="text-primary font-black">2 retouches incluses</span> &mdash; toute modification supplementaire sera facturee.
+                  <span className="text-primary font-black">2 retouches incluses</span> &mdash; toute modification supplémentaire sera facturée.
                 </p>
               </div>
               <div className="flex items-start gap-[0.8cqw]">
                 <span className="text-[1.3cqw] text-primary font-black leading-none mt-[0.2cqw] shrink-0">&#8594;</span>
                 <p className="text-[1.2cqw] text-slate-500 font-semibold leading-snug">
-                  Les <span className="text-primary font-black">delais demarrent</span> a reception de l'acompte &mdash; tout retard client n'engage pas le prestataire.
+                  Les <span className="text-primary font-black">délais démarrent</span> à réception de l'acompte &mdash; tout retard client n'engage pas le prestataire.
                 </p>
               </div>
               <div className="flex items-start gap-[0.8cqw]">
                 <span className="text-[1.3cqw] text-primary font-black leading-none mt-[0.2cqw] shrink-0">&#8594;</span>
                 <p className="text-[1.2cqw] text-slate-500 font-semibold leading-snug">
-                  En cas d'<span className="text-primary font-black">annulation</span> apres demarrage, l'acompte verse reste definitivement acquis.
+                  En cas d'<span className="text-primary font-black">annulation</span> après démarrage, l'acompte versé reste définitivement acquis.
                 </p>
               </div>
             </div>

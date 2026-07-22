@@ -406,9 +406,9 @@ export default function App() {
 
   // Effects
   // Actions
-  const addItem = (customId?: string) => {
-    const id = customId || generateId();
-    setItems([...items, { id, description: '', quantity: 1, unitPrice: 0 }]);
+  const addItem = (customId?: unknown) => {
+    const id = typeof customId === 'string' ? customId : generateId();
+    setItems(prev => [...prev, { id, description: '', quantity: 1, unitPrice: 0 }]);
     return id;
   };
 
@@ -437,13 +437,18 @@ export default function App() {
       return;
     }
     
+    const sanitizedItems = items.map((item, index) => ({
+      ...item,
+      id: typeof item.id === 'string' && item.id ? item.id : `item-${Date.now()}-${index}`
+    }));
+
     const proformaData = {
       id: viewingHistoryId || currentId,
       type: docType,
       number: proformaNumber,
       date: proformaDate,
       client,
-      items,
+      items: sanitizedItems,
       discountPercent,
       total
     };
@@ -975,7 +980,7 @@ export default function App() {
                   Services / Produits
                 </h3>
                 <button 
-                  onClick={addItem}
+                  onClick={() => addItem()}
                   className="text-primary text-[10px] font-black hover:text-secondary flex items-center gap-1.5 transition-colors cursor-pointer uppercase tracking-widest py-2 px-3 hover:bg-slate-50 rounded-xl -my-2 -mx-3"
                 >
                   <Plus size={11} />

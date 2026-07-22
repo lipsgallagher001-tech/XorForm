@@ -235,10 +235,10 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // Label "Facture a"
   doc.setTextColor(148, 163, 184);
   doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
-  doc.text('FACTURE A', clientX + 5, y + 5);
+  doc.text('FACTURE À', clientX + 5, y + 5);
 
   // Badge numero pill (fond PRIMARY, texte blanc)
-  const badgeText = cleanText(`N  ${proforma.number}`);
+  const badgeText = cleanText(`N° ${proforma.number}`);
   doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
   const badgeW = doc.getTextWidth(badgeText) + 6;
   const badgeH = 5.5;
@@ -285,12 +285,11 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     cleanText(`${item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`),
     cleanText(`${(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`)
   ]);
-  while (tableData.length < maxRows) tableData.push(['', '', '', '']);
 
   autoTable(doc, {
     startY: y,
     margin: { left: logoStartX, right: M },
-    head: [['Description', 'Quantité', 'Prix unitaire', 'Total']],
+    head: [['Description', 'Qté', 'Prix unit.', 'Total']],
     body: tableData,
     theme: 'grid',
     headStyles: {
@@ -309,11 +308,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       lineWidth: 0.15,
       minCellHeight: ROW_H,
     },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252], // #F8FAFC (slate-50/70) pour alterner les lignes comme dans l'aperçu
+    },
     columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 25 },
-      2: { halign: 'right',  cellWidth: 36 },
-      3: { halign: 'right',  cellWidth: 36, fontStyle: 'bold' },
+      0: { cellWidth: 'auto', textColor: [...PRIMARY] },
+      1: { halign: 'center', cellWidth: 20, textColor: [...PRIMARY], fontStyle: 'bold' },
+      2: { halign: 'right',  cellWidth: 32, textColor: [100, 116, 139] }, // #64748B (slate-500)
+      3: { halign: 'right',  cellWidth: 32, textColor: [...PRIMARY], fontStyle: 'bold' },
     },
     willDrawCell: (data) => {
       // Dessiner le fond bleu arrondi pour l'en-tête entier lors du traitement de la première cellule
@@ -388,7 +390,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const acompteFormatted = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
   doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
   doc.setTextColor(148, 163, 184);
-  doc.text('Acompte a verser (75%) :', logoStartX + 4, y + 4);
+  doc.text('Acompte à verser (75%) :', logoStartX + 4, y + 4);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...ACCENT);
   doc.text(cleanText(`${acompteFormatted} F CFA`), PW - M - 4, y + 4, { align: 'right' });
@@ -396,7 +398,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   // ── 6. MONTANT EN LETTRES — encadre discret ──────────────────────────────
   const words = numberToWords(Math.round(totalHT));
-  const wordsText = `Arretee la presente facture a la somme de : ${words} FRANCS CFA`;
+  const wordsText = `Arrêtée la présente facture à la somme de : ${words} FRANCS CFA`;
   doc.setFontSize(8.5); doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 116, 139);
   const fullLines = doc.splitTextToSize(cleanText(wordsText), PW - M - logoStartX - 8);
@@ -431,24 +433,24 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     [
       { t: '-', b: false }, { t: ' ', b: false },
       { t: "75%", b: true }, { t: " ", b: false }, { t: "d'acompte", b: true },
-      { t: ' exige avant le debut des travaux - solde a la livraison.', b: false },
+      { t: ' exigé avant le début des travaux - solde à la livraison.', b: false },
     ],
     [
       { t: '-', b: false }, { t: ' ', b: false },
       { t: '2', b: true }, { t: ' ', b: false }, { t: 'retouches', b: true }, { t: ' ', b: false }, { t: 'incluses', b: true },
-      { t: ' - toute modification supplementaire sera facturee.', b: false },
+      { t: ' - toute modification supplémentaire sera facturée.', b: false },
     ],
     [
       { t: '-', b: false }, { t: ' ', b: false },
       { t: 'Les', b: false }, { t: ' ', b: false },
-      { t: 'delais', b: true }, { t: ' ', b: false }, { t: 'demarrent', b: true },
-      { t: " a reception de l'acompte - tout retard client n'engage pas le prestataire.", b: false },
+      { t: 'délais', b: true }, { t: ' ', b: false }, { t: 'démarrent', b: true },
+      { t: " à réception de l'acompte - tout retard client n'engage pas le prestataire.", b: false },
     ],
     [
       { t: '-', b: false }, { t: ' ', b: false },
       { t: "En cas d'", b: false },
       { t: 'annulation', b: true },
-      { t: " apres demarrage, l'acompte verse reste definitivement acquis.", b: false },
+      { t: " après démarrage, l'acompte versé reste définitivement acquis.", b: false },
     ],
   ];
 
@@ -506,7 +508,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // Title
   doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PRIMARY);
-  doc.text('CONDITIONS GENERALES', logoStartX + COND_PX + 3, y + 5.3);
+  doc.text('CONDITIONS GÉNÉRALES', logoStartX + COND_PX + 3, y + 5.3);
 
   // ── Draw conditions text (2 columns, 2 rows) ──
   const condStartY = y + COND_HDR + COND_PY;

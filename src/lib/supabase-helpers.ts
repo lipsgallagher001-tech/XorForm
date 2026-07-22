@@ -311,7 +311,7 @@ export async function loadProformaDetails(proformaId: string): Promise<Proforma 
 export async function saveProforma(
   userId: string, 
   proforma: Proforma
-): Promise<OperationResult> {
+): Promise<OperationResult<any>> {
   try {
     console.log('💾 Sauvegarde proforma...', proforma.number);
 
