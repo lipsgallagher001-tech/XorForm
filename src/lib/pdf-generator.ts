@@ -8,7 +8,7 @@ import { Proforma, CompanyInfo } from '../types';
 const cleanText = (str: string): string => {
   if (!str) return '';
   return str
-    .replace(/[\u202f\u00a0]/g, ' ') // Remplacer tous les espaces insécables par des espaces ordinaires
+    .replace(/[\u202f\u00a0]/g, ' ')
     .replace(/[éèêë]/g, 'e')
     .replace(/[ÉÈÊË]/g, 'E')
     .replace(/[àâä]/g, 'a')
@@ -65,7 +65,6 @@ const optimizeImage = async (
   maxWidth = 800
 ): Promise<{ data: string; format: 'PNG' | 'JPEG' }> =>
   new Promise(resolve => {
-    // ⚡ OPTIMISATION RAPIDE : Si l'image est déjà petite, éviter le traitement
     if (base64.length < 50000) {
       const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
       resolve({ data: base64, format: isJpeg ? 'JPEG' : 'PNG' });
@@ -77,8 +76,6 @@ const optimizeImage = async (
       const canvas = document.createElement('canvas');
       let w = img.width, h = img.height;
 
-      // Si l'image est déjà plus petite que la largeur max et que son poids est raisonnable,
-      // éviter de la redessiner dans un canvas
       if (w <= maxWidth && base64.length < 150000) {
         const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
         resolve({ data: base64, format: isJpeg ? 'JPEG' : 'PNG' });
@@ -91,22 +88,17 @@ const optimizeImage = async (
       if (!ctx) { resolve({ data: base64, format: 'PNG' }); return; }
       ctx.drawImage(img, 0, 0, w, h);
 
-      // Si le format d'origine est JPEG, pas d'alpha possible
       const isJpeg = base64.startsWith('data:image/jpeg') || base64.startsWith('data:image/jpg');
       if (isJpeg) {
         resolve({ data: canvas.toDataURL('image/jpeg', 0.85), format: 'JPEG' });
         return;
       }
 
-      // Échantillonner 1 pixel sur 4 (pas de 16) pour accélérer le scan d'alpha
       const px = ctx.getImageData(0, 0, w, h).data;
       let hasAlpha = false;
       const len = px.length;
       for (let i = 3; i < len; i += 16) {
-        if (px[i] < 250) {
-          hasAlpha = true;
-          break;
-        }
+        if (px[i] < 250) { hasAlpha = true; break; }
       }
 
       resolve(hasAlpha
@@ -117,344 +109,374 @@ const optimizeImage = async (
     img.src = base64;
   });
 
-// ─── couleurs du système de design (Exaggerated Minimalism) ─────────────────
-const PRIMARY = [30, 58, 95] as const;      // Navy professionnel #1E3A5F
-const ACCENT  = [5, 150, 105] as const;      // Vert émeraude #059669
-const MUTED   = [241, 245, 249] as const;    // Gris clair neutre #F1F5F9
+// ─── couleurs du système de design — Boardroom Premium ──────────────────────
+const PRIMARY = [30, 58, 95] as const;      // Navy #1E3A5F
+const ACCENT  = [5, 150, 105] as const;     // Émeraude #059669
 const WHITE   = [255, 255, 255] as const;
+const SLATE400 = [148, 163, 184] as const;
+const SLATE200 = [226, 232, 240] as const;
+const SLATE50  = [248, 250, 252] as const;
+const SLATE100 = [241, 245, 249] as const;
+const RED      = [239, 68, 68] as const;
 
-// ─── générateur ──────────────────────────────────────────────────────────────
+// ─── générateur principal ────────────────────────────────────────────────────
 
 const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Promise<jsPDF> => {
-  const M  = 20; // marges gauche/droite/haut en mm (2 cm)
+  const ML = 16; // marge gauche
+  const MR = 16; // marge droite
   const PW = 210;
   const PH = 297;
-
-  const stampH2 = company.stampHeight    || 25;
-  const sigH    = company.signatureHeight|| 25;
-  const maxImgH = Math.max(stampH2, sigH);
-  const hasSig  = !!(company.signature || company.stamp);
-
-  // ── Zones ancrées depuis le bas ────────────────────────────────────────────
-  const footerBlockH = company.services ? 10 : 0;
-  const sigBlockH = hasSig ? maxImgH + 6 + 4 : 0; // Cadre signature avec marges
-  const bottomReserved = 5 + 5 + footerBlockH + sigBlockH + 12 + 42; // +42mm = bloc Conditions Générales (header 7.5 + 2 rangées × 2 lignes × 4.5 + paddings + gap)
+  const CW = PW - ML - MR; // largeur du contenu
 
   const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
 
-  // ── 0. BARRE ACCENT VERTICALE GAUCHE ────────────────────────────────────
+  // ── 0. PRÉ-CHARGEMENT DES IMAGES ─────────────────────────────────────────
+  let logoOpt: { data: string; format: 'PNG' | 'JPEG' } | null = null;
+  let stampOpt: { data: string; format: 'PNG' | 'JPEG' } | null = null;
+  let sigOpt: { data: string; format: 'PNG' | 'JPEG' } | null = null;
+
+  if (company.logo)      { try { logoOpt  = await optimizeImage(company.logo, 400); } catch { /* skip */ } }
+  if (company.stamp)     { try { stampOpt = await optimizeImage(company.stamp, 300); } catch { /* skip */ } }
+  if (company.signature) { try { sigOpt   = await optimizeImage(company.signature, 300); } catch { /* skip */ } }
+
+  // ── 1. EN-TÊTE NAVY PLEIN ────────────────────────────────────────────────
+  const HDR_H = 38; // hauteur du bloc header en mm
   doc.setFillColor(...PRIMARY);
-  doc.rect(0, 0, 4.5, PH, 'F');
+  doc.rect(0, 0, PW, HDR_H, 'F');
 
-  // ── 1. HEADER ──────────────────────────────────────────────────────────────
-  let y = M;
+  // Cercle déco en haut droite
+  doc.setFillColor(255, 255, 255);
+  doc.setGState(new (doc as any).GState({ opacity: 0.04 }));
+  doc.circle(PW - 15, -5, 22, 'F');
+  doc.circle(PW - 5, HDR_H - 5, 14, 'F');
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
 
-  // Adaptation de la taille relative pour correspondre a 0.53 cqw
-  const scaleFactor = 1.113;
+  // -- Logo ou initiale
+  // Centrage vertical : on calcule la hauteur totale du bloc logo+texte
+  // Texte entreprise : nom (12pt≈4.2mm) + adresse + phone + email = ~4 lignes espacées de ~5mm = ~20.5mm
+  // On prend le max entre la hauteur du logo et celle du bloc texte pour centrer dans HDR_H
+  const scaleFactor = 1.0;
   const logoW = (company.logoWidth  || 18) * scaleFactor;
   const logoH = (company.logoHeight || 18) * scaleFactor;
+  const logoX = ML;
 
-  // Calcul de la hauteur du bloc texte pour centrage vertical avec le logo
-  // Bloc texte : nom (offset 4mm) + 3 lignes d'info espacées de 4.5mm → ~17.5mm
-  const TEXT_BLOCK_H = 4 + 3 * 4.5; // ≈ 17.5 mm
-  const headerBlockH = Math.max(logoH, TEXT_BLOCK_H);
+  // Hauteur du bloc texte : nom + adresse + phone + email = ~24mm
+  const textBlockH = 24;
+  // Hauteur effective de l'élément gauche (logo ou initiale)
+  const leftElemH = logoOpt ? logoH : 14;
+  // Hauteur totale du groupe (logo/initiale alignés côte à côte avec le texte)
+  const groupH = Math.max(leftElemH, textBlockH);
+  // Y de départ pour centrer le groupe dans HDR_H
+  const groupY = (HDR_H - groupH) / 2;
 
-  // Offset vertical pour centrer le logo par rapport au bloc texte
-  const logoOffsetY = (headerBlockH - logoH) / 2;
-  // Offset vertical pour centrer le texte par rapport au logo
-  const textOffsetY = (headerBlockH - TEXT_BLOCK_H) / 2;
+  // Y du logo centré verticalement dans le groupe
+  const logoY = groupY + (groupH - leftElemH) / 2;
 
-  const logoStartX = M + 8; // decale de la barre accent (4.5mm) + gap
-  if (company.logo) {
-    try {
-      const opt = await optimizeImage(company.logo, 400);
-      doc.addImage(opt.data, opt.format, logoStartX, y + logoOffsetY, logoW, logoH, undefined, 'FAST');
-    } catch {
-      doc.setFillColor(...PRIMARY);
-      doc.roundedRect(logoStartX, y + logoOffsetY, logoW, logoH, 1.5, 1.5, 'F');
-      doc.setTextColor(...WHITE);
-      doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-      doc.text(cleanText(company.name.charAt(0).toUpperCase()), logoStartX + logoW / 2, y + logoOffsetY + logoH / 2 + 4, { align: 'center' });
-    }
+  if (logoOpt) {
+    doc.addImage(logoOpt.data, logoOpt.format, logoX, logoY, logoW, logoH, undefined, 'FAST');
   } else {
-    doc.setFillColor(...PRIMARY);
-    doc.roundedRect(logoStartX, y + logoOffsetY, logoW, logoH, 1.5, 1.5, 'F');
+    // Carré initiale
+    doc.setFillColor(255, 255, 255);
+    doc.setGState(new (doc as any).GState({ opacity: 0.15 }));
+    doc.roundedRect(logoX, logoY, 14, 14, 1.5, 1.5, 'F');
+    doc.setGState(new (doc as any).GState({ opacity: 1 }));
     doc.setTextColor(...WHITE);
-    doc.setFontSize(13); doc.setFont('helvetica', 'bold');
-    doc.text(cleanText(company.name.charAt(0).toUpperCase()), logoStartX + logoW / 2, y + logoOffsetY + logoH / 2 + 4, { align: 'center' });
+    doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+    doc.text(cleanText(company.name.charAt(0).toUpperCase()), logoX + 7, logoY + 9.5, { align: 'center' });
   }
 
-  // Infos entreprise (alignees verticalement avec le logo)
-  const infoX = logoStartX + logoW + 5;
-  const nameY  = y + textOffsetY + 4;
-  const infoY0 = y + textOffsetY + 10;
+  // -- Infos entreprise (centrées verticalement dans le groupe)
+  const infoX = logoX + (logoOpt ? logoW : 14) + 4;
+  // Y de départ du texte centré dans le groupe
+  const textStartY = groupY + (groupH - textBlockH) / 2;
 
-  doc.setTextColor(...PRIMARY);
-  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(company.name), infoX, nameY);
-
-  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
-  doc.setTextColor(100, 116, 139);
-  const infoLines: string[] = [company.address, company.phone, company.email];
-  infoLines.forEach((line, i) => doc.text(cleanText(line), infoX, infoY0 + i * 4.5));
-
-  // Droite — label type discret + grand titre
-  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(200, 210, 220);
-  doc.text(cleanText(proforma.type === 'FACTURE' ? 'FACTURE' : 'PRO-FORMA'), PW - M, y + 4, { align: 'right' });
-
-  doc.setFontSize(16); doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...PRIMARY);
-  doc.text(cleanText(proforma.type === 'FACTURE' ? 'Facture' : 'Pro-Forma'), PW - M, y + 12, { align: 'right' });
-
-  // Identifiants legaux
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  let legalY = y + 18;
-  if (company.siret) { doc.text(cleanText(`SIRET : ${company.siret}`), PW - M, legalY, { align: 'right' }); legalY += 4; }
-  if (company.siren) { doc.text(cleanText(`SIREN : ${company.siren}`), PW - M, legalY, { align: 'right' }); legalY += 4; }
-  if (company.rcs)   { doc.text(cleanText(`RCS : ${company.rcs}`),   PW - M, legalY, { align: 'right' }); }
-
-  y += Math.max(logoH, 24) + 4;
-  doc.setDrawColor(226, 232, 240); doc.setLineWidth(0.2);
-  doc.line(logoStartX, y, PW - M, y);
-  y += 8;
-
-  // ── 2. BANDEAU CLIENT — teinture navy + badge numero pill ─────────────────
-  const hasPhone = !!proforma.client.phone;
-  const clientH = 20;
-  const clientX = logoStartX; // aligne avec le contenu (apres barre accent)
-
-  // Fond teinture navy tres pale + bord gauche accent
-  doc.setFillColor(245, 247, 251); // navy/3 - tres pale
-  doc.rect(clientX, y, PW - M - clientX, clientH, 'F');
-  // Bord gauche accent
-  doc.setFillColor(...PRIMARY);
-  doc.rect(clientX, y, 1.2, clientH, 'F');
-
-  // Label "Facture a"
-  doc.setTextColor(148, 163, 184);
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
-  doc.text('FACTURE À', clientX + 5, y + 5);
-
-  // Badge numero pill (fond PRIMARY, texte blanc)
-  const badgeText = cleanText(`N° ${proforma.number}`);
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
-  const badgeW = doc.getTextWidth(badgeText) + 6;
-  const badgeH = 5.5;
-  const badgeX = PW - M - badgeW - 1;
-  const badgeY = y + 1.5;
-  doc.setFillColor(...PRIMARY);
-  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 2.5, 2.5, 'F');
   doc.setTextColor(...WHITE);
-  doc.text(badgeText, badgeX + 3, badgeY + 3.8);
+  doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(company.name), infoX, textStartY + 5);
 
-  // Nom client
-  doc.setTextColor(...PRIMARY);
-  doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(proforma.client.name.toUpperCase()), clientX + 5, y + 12);
-
-  // Tel + doc type + date
-  doc.setTextColor(148, 163, 184);
   doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-  const docTypeLabel = proforma.type === 'FACTURE' ? '· FACTURE' : '· PRO-FORMA';
-  let clientInfoX = clientX + 5;
-  if (hasPhone) {
-    doc.text(cleanText(`TEL : ${proforma.client.phone}`), clientInfoX, y + 17.5);
-    clientInfoX += doc.getTextWidth(cleanText(`TEL : ${proforma.client.phone}`)) + 4;
+  doc.setTextColor(255, 255, 255);
+  doc.setGState(new (doc as any).GState({ opacity: 0.55 }));
+  doc.text(cleanText(company.address), infoX, textStartY + 10.5);
+  doc.setGState(new (doc as any).GState({ opacity: 0.7 }));
+  doc.text(cleanText(company.phone), infoX, textStartY + 15.5);
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  doc.setTextColor(...ACCENT);
+  doc.text(cleanText(company.email), infoX, textStartY + 20.5);
+
+  // -- Type de document (droite) — centré verticalement dans HDR_H
+  // "DOCUMENT" (petit) + "Pro-Forma" (18pt) + identifiants légaux
+  // On cible le centre vertical à HDR_H/2
+  const docCenterY = HDR_H / 2;
+  doc.setTextColor(255, 255, 255);
+  doc.setGState(new (doc as any).GState({ opacity: 0.28 }));
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.text('DOCUMENT', PW - MR, docCenterY - 8, { align: 'right' });
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  doc.setFontSize(18); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(proforma.type === 'FACTURE' ? 'Facture' : 'Pro-Forma'), PW - MR, docCenterY - 1, { align: 'right' });
+
+  // Identifiants légaux
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.setGState(new (doc as any).GState({ opacity: 0.4 }));
+  let legalY = docCenterY + 5;
+  if (company.siret) { doc.text(cleanText(`SIRET : ${company.siret}`), PW - MR, legalY, { align: 'right' }); legalY += 4; }
+  if (company.siren) { doc.text(cleanText(`SIREN : ${company.siren}`), PW - MR, legalY, { align: 'right' }); legalY += 4; }
+  if (company.rcs)   { doc.text(cleanText(`RCS : ${company.rcs}`),     PW - MR, legalY, { align: 'right' }); }
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+
+  let y = HDR_H + 6;
+
+  // ── 2. SECTION CLIENT + MÉTADONNÉES ─────────────────────────────────────
+  const CLIENT_CARD_H = 22;
+  const META_W = 55;
+  const CLIENT_W = CW - META_W - 4;
+
+  // Carte client
+  doc.setFillColor(...SLATE50);
+  doc.setDrawColor(...SLATE200);
+  doc.setLineWidth(0.15);
+  doc.roundedRect(ML, y, CLIENT_W, CLIENT_CARD_H, 2.5, 2.5, 'FD');
+
+  doc.setTextColor(...SLATE400);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text('DESTINATAIRE', ML + 4, y + 5);
+
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(proforma.client.name.toUpperCase()), ML + 4, y + 11.5);
+
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...SLATE400);
+  let clientInfoY = y + 16.5;
+  if (proforma.client.phone) {
+    doc.text(cleanText(proforma.client.phone), ML + 4, clientInfoY);
   }
-  doc.setTextColor(200, 210, 220);
-  doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(docTypeLabel), clientInfoX, y + 17.5);
-  doc.setTextColor(148, 163, 184); doc.setFont('helvetica', 'normal');
-  doc.text(cleanText(format(new Date(proforma.date), 'dd/MM/yyyy')), PW - M - 1, y + 17.5, { align: 'right' });
 
-  y += clientH + 5;
+  // Méta-données (3 mini-cartes à droite)
+  const metaX = ML + CLIENT_W + 4;
+  const metaCardH = 6.5;
+  const metaGap = 0.7;
 
-  // ── 4. TABLEAU ─────────────────────────────────────────────────────────────
-  const totalsH  = 42;  // Espace pour totaux + marge sécurité
-  const availForTable = PH - y - totalsH - bottomReserved;
-  const ROW_H    = 9.0;
-  const HEAD_H   = 11;
-  const MIN_ROWS = 6;
-  const maxRows  = Math.max(MIN_ROWS, Math.floor((availForTable - HEAD_H) / ROW_H));
+  // Carte numéro (navy)
+  doc.setFillColor(...PRIMARY);
+  doc.roundedRect(metaX, y, META_W, metaCardH, 1.5, 1.5, 'F');
+  doc.setTextColor(...WHITE);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+  doc.setGState(new (doc as any).GState({ opacity: 0.55 }));
+  doc.text('NUMERO', metaX + 3, y + 4.2);
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(`#${proforma.number}`), metaX + META_W - 3, y + 4.2, { align: 'right' });
 
-  const tableData = proforma.items.map(item => [
-    cleanText(item.description || 'Sans description'),
-    item.quantity.toString(),
-    cleanText(`${item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`),
-    cleanText(`${(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F`)
-  ]);
+  // Carte date
+  const dateY = y + metaCardH + metaGap;
+  doc.setFillColor(...SLATE50);
+  doc.setDrawColor(...SLATE100);
+  doc.roundedRect(metaX, dateY, META_W, metaCardH, 1.5, 1.5, 'FD');
+  doc.setTextColor(...SLATE400);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+  doc.text('DATE', metaX + 3, dateY + 4.2);
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(format(new Date(proforma.date), 'dd/MM/yyyy')), metaX + META_W - 3, dateY + 4.2, { align: 'right' });
 
-  autoTable(doc, {
-    startY: y,
-    margin: { left: logoStartX, right: M },
-    head: [['Description', 'Qté', 'Prix unit.', 'Total']],
-    body: tableData,
-    theme: 'grid',
-    headStyles: {
-      fillColor: false, // Fond transparent pour afficher le rectangle arrondi personnalisé
-      textColor: [...WHITE] as [number, number, number],
-      fontSize: 9.5,
-      fontStyle: 'bold',
-      cellPadding: 3.5,
-      lineWidth: 0, // Pas de bordure automatique pour éviter les coins carrés
-    },
-    styles: {
-      fontSize: 9.5,
-      cellPadding: 3.2,
-      textColor: [...PRIMARY] as [number, number, number],
-      lineColor: [226, 232, 240], // #E2E8F0 pour correspondre à l'aperçu
-      lineWidth: 0.15,
-      minCellHeight: ROW_H,
-    },
-    alternateRowStyles: {
-      fillColor: [248, 250, 252], // #F8FAFC (slate-50/70) pour alterner les lignes comme dans l'aperçu
-    },
-    columnStyles: {
-      0: { cellWidth: 'auto', textColor: [...PRIMARY] },
-      1: { halign: 'center', cellWidth: 20, textColor: [...PRIMARY], fontStyle: 'bold' },
-      2: { halign: 'right',  cellWidth: 32, textColor: [100, 116, 139] }, // #64748B (slate-500)
-      3: { halign: 'right',  cellWidth: 32, textColor: [...PRIMARY], fontStyle: 'bold' },
-    },
-    willDrawCell: (data) => {
-      // Dessiner le fond bleu arrondi pour l'en-tête entier lors du traitement de la première cellule
-      if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
-        doc.setFillColor(...PRIMARY);
-        // PW - 2*M = largeur réelle du tableau (marges left=M, right=M)
-        // data.cell.height = hauteur de la cellule d'en-tête (data.row.height non dispo dans willDrawCell)
-        doc.roundedRect(
-          data.cell.x,
-          data.cell.y,
-          PW - M - logoStartX,
-          data.cell.height,
-          3.0,
-          3.0,
-          'F'
-        );
-      }
-    },
-    didDrawCell: (data) => {
-      // Dessiner de fines séparations verticales blanches entre les colonnes de l'en-tête
-      // Couleur mélangée [53, 78, 111] correspondant à 10% d'opacité du blanc sur le fond navy PRIMARY [30, 58, 95]
-      if (data.section === 'head' && data.column.index < 3) {
-        doc.setDrawColor(53, 78, 111);
-        doc.setLineWidth(0.15);
-        doc.line(
-          data.cell.x + data.cell.width,
-          data.cell.y,
-          data.cell.x + data.cell.width,
-          data.cell.y + data.cell.height
-        );
-      }
-    }
-  });
+  // Carte type
+  const typeY = dateY + metaCardH + metaGap;
+  doc.setFillColor(...SLATE50);
+  doc.setDrawColor(...SLATE100);
+  doc.roundedRect(metaX, typeY, META_W, metaCardH, 1.5, 1.5, 'FD');
+  doc.setTextColor(...SLATE400);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
+  doc.text('TYPE', metaX + 3, typeY + 4.2);
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(proforma.type === 'FACTURE' ? 'Facture' : 'Pro-Forma'), metaX + META_W - 3, typeY + 4.2, { align: 'right' });
 
-  y = (doc as any).lastAutoTable.finalY;
+  y += CLIENT_CARD_H + 7;
 
-  // ── 5. TOTAUX ──────────────────────────────────────────────────────────────
-  y += 4;
+  // ── 3. TABLEAU ───────────────────────────────────────────────────────────
   const subtotal    = proforma.items.reduce((a, i) => a + i.quantity * i.unitPrice, 0);
   const discountAmt = (subtotal * (proforma.discountPercent || 0)) / 100;
   const totalHT     = subtotal - discountAmt;
 
-  doc.setFontSize(9.5); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184); // #94A3B8 (slate-400)
-  const formattedSubtotal = subtotal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
-  doc.text(cleanText(`Sous-total : ${formattedSubtotal} F CFA`), PW - M, y, { align: 'right' });
+  const totalsBlockH = 40 + (proforma.discountPercent ? 6 : 0); // espace réservé sous le tableau
+  const sigH2  = company.signatureHeight || 25;
+  const stampH = company.stampHeight    || 25;
+  const maxImgH = Math.max(sigH2, stampH);
+  const hasSig = !!(company.signature || company.stamp);
+  const footerH = 14 + (company.services ? 5 : 0) + (hasSig ? maxImgH + 6 : 0);
+  const bottomReserved = totalsBlockH + 28 + 42 + footerH; // totaux + lettres + conditions + footer
+
+  const tableData = proforma.items.map(item => [
+    cleanText(item.description || 'Sans description'),
+    item.quantity.toString(),
+    cleanText(fmtCur(item.unitPrice)),
+    cleanText(fmtCur(item.quantity * item.unitPrice)),
+  ]);
+
+  autoTable(doc, {
+    startY: y,
+    margin: { left: ML, right: MR },
+    head: [['Description', 'Qté', 'Prix unit.', 'Total']],
+    body: tableData,
+    theme: 'plain',
+    headStyles: {
+      fillColor: false,
+      textColor: [...WHITE] as [number, number, number],
+      fontSize: 8,
+      fontStyle: 'bold',
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3, right: 3 },
+      lineWidth: 0,
+    },
+    styles: {
+      fontSize: 9,
+      cellPadding: { top: 2.8, bottom: 2.8, left: 3, right: 3 },
+      textColor: [...PRIMARY] as [number, number, number],
+      lineColor: [...SLATE200] as [number, number, number],
+      lineWidth: 0,
+    },
+    alternateRowStyles: { fillColor: false },
+    columnStyles: {
+      0: { cellWidth: 'auto', textColor: [51, 65, 85] },
+      1: { halign: 'center', cellWidth: 18, textColor: [...PRIMARY], fontStyle: 'bold' },
+      2: { halign: 'right',  cellWidth: 32, textColor: [...SLATE400] },
+      3: { halign: 'right',  cellWidth: 32, textColor: [...PRIMARY], fontStyle: 'bold' },
+    },
+    willDrawCell: (data) => {
+      // Header navy arrondi
+      if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {
+        doc.setFillColor(...PRIMARY);
+        doc.roundedRect(data.cell.x, data.cell.y, CW, data.cell.height, 2.5, 2.5, 'F');
+      }
+      // Ligne de séparation sous chaque ligne de body
+      if (data.section === 'body') {
+        doc.setDrawColor(...SLATE200);
+        doc.setLineWidth(0.12);
+        doc.line(
+          data.cell.x,
+          data.cell.y + data.cell.height,
+          data.cell.x + data.cell.width,
+          data.cell.y + data.cell.height
+        );
+      }
+    },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── 4. TOTAUX (colonne droite) ───────────────────────────────────────────
+  const TOT_W = 80; // largeur de la colonne totaux
+  const totX = PW - MR - TOT_W;
+
+  // Séparateur hairline avant totaux
+  doc.setDrawColor(...SLATE200);
+  doc.setLineWidth(0.15);
+  doc.line(totX, y, PW - MR, y);
+  y += 5;
+
+  // Sous-total
+  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...SLATE400);
+  doc.text('Sous-total', totX, y);
+  const subFmt = subtotal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+  doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(`${subFmt} F CFA`), PW - MR, y, { align: 'right' });
   y += 5.5;
 
+  // Séparateur
+  doc.setDrawColor(...SLATE200);
+  doc.setLineWidth(0.12);
+  doc.line(totX, y - 1, PW - MR, y - 1);
+
+  // Remise
   if ((proforma.discountPercent || 0) > 0) {
-    doc.setTextColor(239, 68, 68); // #EF4444 (destructive red)
-    const formattedDiscount = discountAmt.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
-    doc.text(cleanText(`Remise (${proforma.discountPercent}%) : -${formattedDiscount} F CFA`), PW - M, y, { align: 'right' });
-    y += 5.5;
+    doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...RED);
+    doc.text(cleanText(`Remise (${proforma.discountPercent}%)`), totX, y + 4);
+    const discFmt = discountAmt.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+    doc.setFont('helvetica', 'bold');
+    doc.text(cleanText(`-${discFmt} F CFA`), PW - MR, y + 4, { align: 'right' });
+    y += 10;
+    doc.setDrawColor(...SLATE200);
+    doc.setLineWidth(0.12);
+    doc.line(totX, y - 1, PW - MR, y - 1);
   }
 
-  // Barre Total Net en PRIMARY (navy) — plus corporate
-  const barH = 12;
+  // Barre Total Net
+  const barH = 11;
   doc.setFillColor(...PRIMARY);
-  doc.roundedRect(logoStartX, y, PW - M - logoStartX, barH, 3, 3, 'F');
+  doc.roundedRect(totX, y, TOT_W, barH, 2, 2, 'F');
   doc.setTextColor(...WHITE);
-  // Label gauche discret
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.text('Total Net', logoStartX + 4, y + 7.8);
-  // Montant droite bold
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+  doc.setGState(new (doc as any).GState({ opacity: 0.6 }));
+  doc.text('Total Net', totX + 4, y + 7);
+  doc.setGState(new (doc as any).GState({ opacity: 1 }));
   doc.setFontSize(11); doc.setFont('helvetica', 'bold');
-  const formattedTotal = totalHT.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
-  doc.text(cleanText(`${formattedTotal} F CFA`), PW - M - 4, y + 7.8, { align: 'right' });
+  const totFmt = totalHT.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+  doc.text(cleanText(`${totFmt} F CFA`), PW - MR - 3, y + 7.5, { align: 'right' });
   y += barH + 4;
 
-  // Ligne acompte a verser (75%)
+  // Acompte 75%
+  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...SLATE400);
+  doc.text('Acompte a verser (75%)', totX, y);
   const acompteVal = Math.round(totalHT * 0.75);
-  const acompteFormatted = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
-  doc.setFontSize(8.5); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  doc.text('Acompte à verser (75%) :', logoStartX + 4, y + 4);
+  const acompteFmt = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...ACCENT);
-  doc.text(cleanText(`${acompteFormatted} F CFA`), PW - M - 4, y + 4, { align: 'right' });
-  y += 10;
+  doc.text(cleanText(`${acompteFmt} F CFA`), PW - MR, y, { align: 'right' });
+  y += 8;
 
-  // ── 6. MONTANT EN LETTRES — encadre discret ──────────────────────────────
-  const words = numberToWords(Math.round(totalHT));
-  const wordsText = `Arrêtée la présente facture à la somme de : ${words} FRANCS CFA`;
-  doc.setFontSize(8.5); doc.setFont('helvetica', 'italic');
+  // ── 5. MONTANT EN LETTRES ────────────────────────────────────────────────
+  const words    = numberToWords(Math.round(totalHT));
+  const wordsStr = cleanText(`Arretee la presente facture a la somme de : ${words} FRANCS CFA`);
+
+  // Barre accent gauche + italique
+  doc.setFillColor(...ACCENT);
+  doc.roundedRect(ML, y, 0.8, 10, 0.4, 0.4, 'F');
+
+  doc.setFontSize(8); doc.setFont('helvetica', 'italic');
   doc.setTextColor(100, 116, 139);
-  const fullLines = doc.splitTextToSize(cleanText(wordsText), PW - M - logoStartX - 8);
-  const wordsBoxH = fullLines.length * 4.5 + 5;
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(226, 232, 240);
-  doc.setLineWidth(0.15);
-  doc.roundedRect(logoStartX, y, PW - M - logoStartX, wordsBoxH, 2, 2, 'FD');
-  doc.text(fullLines, logoStartX + 4, y + 4.5);
-  y += wordsBoxH + 3;
+  const wordsLines = doc.splitTextToSize(wordsStr, CW - 6);
+  doc.text(wordsLines, ML + 4, y + 3.5);
+  y += wordsLines.length * 4 + 4;
 
-  // ── 7. CONDITIONS GÉNÉRALES ───────────────────────────────────────────────
-  const COND_FS   = 7;    // font size
-  const COND_LH   = 4.5;  // line height mm
-  const COND_PX   = 5;    // horizontal padding inside box
-  const COND_PY   = 3.5;  // vertical padding
-  const COND_HDR  = 7.5;  // header band height
-  const COND_GAP  = 6;    // gap between columns
+  // ── 6. CONDITIONS GÉNÉRALES ──────────────────────────────────────────────
+  const COND_FS  = 7;
+  const COND_LH  = 4.2;
+  const COND_PX  = 4;
+  const COND_PY  = 3;
+  const COND_HDR = 7;
+  const COND_GAP = 5;
+  const condColW = (CW - 2 * COND_PX - COND_GAP) / 2;
 
-  const condColW = (PW - M - logoStartX - 2 * COND_PX - COND_GAP) / 2;
-
-  // Helper: get text width for a word with given style
   const cw = (text: string, bold: boolean): number => {
     doc.setFontSize(COND_FS);
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
     return doc.getTextWidth(text);
   };
 
-  // Each condition = sequence of [text, isBold] tokens
   type CToken = { t: string; b: boolean };
   const condDefs: CToken[][] = [
     [
-      { t: '-', b: false }, { t: ' ', b: false },
-      { t: "75%", b: true }, { t: " ", b: false }, { t: "d'acompte", b: true },
-      { t: ' exigé avant le début des travaux - solde à la livraison.', b: false },
+      { t: '75% d\'acompte', b: true },
+      { t: ' exige avant le debut des travaux — solde a la livraison.', b: false },
     ],
     [
-      { t: '-', b: false }, { t: ' ', b: false },
-      { t: '2', b: true }, { t: ' ', b: false }, { t: 'retouches', b: true }, { t: ' ', b: false }, { t: 'incluses', b: true },
-      { t: ' - toute modification supplémentaire sera facturée.', b: false },
+      { t: '2 retouches incluses', b: true },
+      { t: ' — toute modification supplementaire sera facturee.', b: false },
     ],
     [
-      { t: '-', b: false }, { t: ' ', b: false },
-      { t: 'Les', b: false }, { t: ' ', b: false },
-      { t: 'délais', b: true }, { t: ' ', b: false }, { t: 'démarrent', b: true },
-      { t: " à réception de l'acompte - tout retard client n'engage pas le prestataire.", b: false },
+      { t: 'Delais demarrent', b: true },
+      { t: ' a reception de l\'acompte — tout retard client n\'engage pas le prestataire.', b: false },
     ],
     [
-      { t: '-', b: false }, { t: ' ', b: false },
-      { t: "En cas d'", b: false },
-      { t: 'annulation', b: true },
-      { t: " après démarrage, l'acompte versé reste définitivement acquis.", b: false },
+      { t: 'En cas d\'annulation', b: true },
+      { t: ' apres demarrage, l\'acompte verse reste definitvement acquis.', b: false },
     ],
   ];
 
-  // Word-level wrap: splits each token by spaces, returns lines of [{t,b,xOff}]
   type RWord = { t: string; b: boolean };
   const wrapCond = (tokens: CToken[], maxW: number): RWord[][] => {
     const words: RWord[] = [];
@@ -469,62 +491,54 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     for (const w of words) {
       const isSpace = /^ +$/.test(w.t);
       const wW = cw(w.t, w.b);
-      if (!isSpace && lineW > 0 && lineW + wW > maxW) {
-        lines.push([]);
-        lineW = 0;
-      }
-      if (isSpace && lineW === 0) continue; // skip leading spaces on new line
+      if (!isSpace && lineW > 0 && lineW + wW > maxW) { lines.push([]); lineW = 0; }
+      if (isSpace && lineW === 0) continue;
       lines[lines.length - 1].push(w);
       lineW += wW;
     }
     return lines;
   };
 
-  // Pre-render all 4 conditions
   const condWrapped = condDefs.map(d => wrapCond(d, condColW));
-
-  // Calculate row heights (max lines between left & right of each row)
   const rowH = [
     Math.max(condWrapped[0].length, condWrapped[1].length) * COND_LH,
     Math.max(condWrapped[2].length, condWrapped[3].length) * COND_LH,
   ];
   const condBoxH = COND_HDR + COND_PY + rowH[0] + COND_PY + rowH[1] + COND_PY;
 
-  // ── Draw box ──
-  doc.setDrawColor(226, 232, 240);
-  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(...SLATE100);
+  doc.setFillColor(...WHITE);
   doc.setLineWidth(0.2);
-  doc.roundedRect(logoStartX, y, PW - M - logoStartX, condBoxH, 3, 3, 'FD');
+  doc.roundedRect(ML, y, CW, condBoxH, 2.5, 2.5, 'FD');
 
-  // Header tinted band
-  doc.setFillColor(238, 242, 248);
-  doc.roundedRect(logoStartX, y, PW - M - logoStartX, COND_HDR, 3, 3, 'F');
-  doc.rect(logoStartX, y + COND_HDR / 2, PW - M - logoStartX, COND_HDR / 2, 'F');
+  // Bandeau header conditions
+  doc.setFillColor(...SLATE50);
+  doc.roundedRect(ML, y, CW, COND_HDR, 2.5, 2.5, 'F');
+  doc.rect(ML, y + COND_HDR / 2, CW, COND_HDR / 2, 'F');
 
-  // Accent bar
+  // Séparateur horizontal header
+  doc.setDrawColor(...SLATE100);
+  doc.setLineWidth(0.12);
+  doc.line(ML, y + COND_HDR, ML + CW, y + COND_HDR);
+
+  // Ligne déco (trait court navy)
   doc.setFillColor(...PRIMARY);
-  doc.roundedRect(logoStartX + COND_PX, y + 1.8, 0.8, 4, 0.4, 0.4, 'F');
+  doc.roundedRect(ML + COND_PX, y + 2, 5, 0.6, 0.3, 0.3, 'F');
 
-  // Title
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PRIMARY);
-  doc.text('CONDITIONS GÉNÉRALES', logoStartX + COND_PX + 3, y + 5.3);
+  doc.text('CONDITIONS GENERALES', ML + COND_PX + 7, y + 5);
 
-  // ── Draw conditions text (2 columns, 2 rows) ──
   const condStartY = y + COND_HDR + COND_PY;
-
   for (let row = 0; row < 2; row++) {
     const rowBaseY = condStartY + (row === 0 ? 0 : rowH[0] + COND_PY);
-
     for (let col = 0; col < 2; col++) {
       const idx = row * 2 + col;
-      const condX = logoStartX + COND_PX + col * (condColW + COND_GAP);
+      const condX = ML + COND_PX + col * (condColW + COND_GAP);
       const lines = condWrapped[idx];
-
       lines.forEach((lineWords, li) => {
-        const lineY = rowBaseY + li * COND_LH + COND_LH * 0.85; // baseline offset
+        const lineY = rowBaseY + li * COND_LH + COND_LH * 0.85;
         let drawX = condX;
-
         lineWords.forEach(({ t, b }) => {
           doc.setFontSize(COND_FS);
           doc.setFont('helvetica', b ? 'bold' : 'normal');
@@ -536,84 +550,61 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     }
   }
 
-  y += condBoxH + 4;
+  y += condBoxH + 5;
 
+  // ── 7. FOOTER 3 ZONES ────────────────────────────────────────────────────
+  const footerY = PH - 14;
 
-  // ── 8. SIGNATURE/CACHET — ancrée depuis le bas ────────────────────────────
-  const footerY = PH - 5 - 10;
-  const sigLabelY = company.services 
-    ? footerY - maxImgH - 14  // Espace de 14 mm entre la signature et le texte des services
-    : PH - 5 - 10 - maxImgH - 4;
-
+  // Signature + Cachet (centrés)
   if (hasSig) {
     const stampW = company.stampWidth     || 35;
     const sigW   = company.signatureWidth || 35;
-    const stampH = company.stampHeight    || 25;
-    const sigH   = company.signatureHeight|| 25;
-    const maxImgH = Math.max(stampH, sigH);
+    const stampHh = company.stampHeight   || 25;
+    const sigHh   = company.signatureHeight || 25;
+    const maxH = Math.max(stampHh, sigHh);
+    const sigAreaY = footerY - maxH - 6;
 
-    // Calcul de la largeur totale de la boîte de signature/cachet
-    let boxW = 0;
-    if (company.stamp && company.signature) {
-      boxW = stampW + sigW + 12; // Espace entre les images
-    } else {
-      boxW = (company.stamp ? stampW : sigW) + 8;
+    let totalImgW = 0;
+    if (stampOpt && sigOpt) totalImgW = stampW + sigW + 8;
+    else if (stampOpt)       totalImgW = stampW;
+    else if (sigOpt)         totalImgW = sigW;
+
+    const sigAreaX = ML + CW / 2 - totalImgW / 2;
+
+
+
+    let imgX = sigAreaX;
+    if (stampOpt) {
+      doc.addImage(stampOpt.data, stampOpt.format, imgX, sigAreaY + (maxH - stampHh) / 2, stampW, stampHh, undefined, 'FAST');
+      imgX += stampW + 8;
     }
-    const boxH = maxImgH + 6;
-    const boxX = PW - M - boxW;
-    const boxY = sigLabelY;
-
-    // Dessiner le cadre comme sur la maquette d'aperçu
-    doc.setDrawColor(226, 232, 240); // #E2E8F0 (border-border)
-    doc.setFillColor(248, 250, 252); // #F8FAFC
-    doc.setLineWidth(0.15);
-    doc.roundedRect(boxX, boxY, boxW, boxH, 4.5, 4.5, 'FD'); // FD = Fill & Draw
-
-    if (company.stamp) {
-      try {
-        const opt = await optimizeImage(company.stamp, 300);
-        const imgX = boxX + 4;
-        const imgY = boxY + 3 + (maxImgH - stampH) / 2;
-        doc.addImage(opt.data, opt.format, imgX, imgY, stampW, stampH, undefined, 'FAST');
-      } catch { /* skip */ }
-    }
-    if (company.signature) {
-      try {
-        const opt = await optimizeImage(company.signature, 300);
-        const imgX = company.stamp ? boxX + stampW + 8 : boxX + 4;
-        const imgY = boxY + 3 + (maxImgH - sigH) / 2;
-        doc.addImage(opt.data, opt.format, imgX, imgY, sigW, sigH, undefined, 'FAST');
-      } catch { /* skip */ }
+    if (sigOpt) {
+      doc.addImage(sigOpt.data, sigOpt.format, imgX, sigAreaY + (maxH - sigHh) / 2, sigW, sigHh, undefined, 'FAST');
     }
   }
 
-  // ── 8. FOOTER STRUCTURE — ancre en bas ────────────────────────────────────
-  // Ligne separatrice
-  doc.setDrawColor(226, 232, 240);
+  // Ligne séparatrice
+  doc.setDrawColor(...SLATE200);
   doc.setLineWidth(0.2);
-  doc.line(logoStartX, footerY - 6, PW - M, footerY - 6);
+  doc.line(ML, footerY - 4, PW - MR, footerY - 4);
 
-  // Services a gauche
+  // Services (gauche)
   if (company.services) {
     const sLines = company.services.split('\n').filter(Boolean);
-    doc.setFontSize(8.5); doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
     doc.setTextColor(...PRIMARY);
-    doc.text(cleanText(`SERVICES : ${sLines.join(' \u00b7 ')}`), logoStartX, footerY, {
-      maxWidth: (PW - M - logoStartX) * 0.55
-    });
+    doc.text(cleanText(sLines.join(' · ')), ML, footerY, { maxWidth: CW * 0.45 });
   }
 
-  // Coordonnees a droite
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(148, 163, 184);
-  if (company.phone) {
-    doc.text(cleanText(company.phone), PW - M, footerY - 5, { align: 'right' });
-  }
-  if (company.email) {
-    doc.text(cleanText(company.email), PW - M, footerY, { align: 'right' });
-  }
+  // Coordonnées (droite)
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...SLATE400);
+  const coords: string[] = [];
+  if (company.phone) coords.push(cleanText(company.phone));
+  if (company.email) coords.push(cleanText(company.email));
+  coords.forEach((c, i) => doc.text(c, PW - MR, footerY - (coords.length - 1 - i) * 4.5, { align: 'right' }));
 
-  // Bande de pied plus epaisse (6mm)
+  // Bande navy basse
   doc.setFillColor(...PRIMARY);
   doc.rect(0, PH - 6, PW, 6, 'F');
 
