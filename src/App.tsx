@@ -434,6 +434,10 @@ export default function App() {
   const removeItem = (id: string) => {
     if (items.length > 1) {
       setItems(items.filter(item => item.id !== id));
+      addToast('info', 'Ligne retirée du document.', 'Ligne supprimée');
+    } else {
+      setItems([{ id: generateId(), description: '', quantity: 1, unitPrice: 0 }]);
+      addToast('info', 'Ligne réinitialisée.', 'Ligne effacée');
     }
   };
 
@@ -1055,14 +1059,14 @@ export default function App() {
                 <div className="col-span-6">Description</div>
                 <div className="col-span-2 text-center">Qté</div>
                 <div className="col-span-3 text-right">P.U (FCFA)</div>
-                <div className="col-span-1"></div>
+                <div className="col-span-1 text-center">Sup.</div>
               </div>
               
               <div className="space-y-2.5">
                 {items.map((item) => (
                   <div 
                     key={item.id}
-                    className="grid grid-cols-12 gap-2 group item-row-enter items-center bg-slate-50/40 p-1 rounded-xl hover:bg-slate-50/90 transition-colors"
+                    className="grid grid-cols-12 gap-2 group item-row-enter items-center bg-slate-50/40 p-1.5 rounded-xl hover:bg-slate-50/90 transition-colors"
                   >
                     <div className="col-span-6">
                       <input 
@@ -1122,12 +1126,13 @@ export default function App() {
                     </div>
                     <div className="col-span-1 flex items-center justify-center">
                       <button 
+                        type="button"
                         onClick={() => removeItem(item.id)}
-                        disabled={items.length === 1}
-                        className="text-slate-300 hover:text-destructive disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors p-1.5 rounded-lg hover:bg-red-50"
-                        title="Supprimer la ligne"
+                        className="w-8 h-8 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-200/80 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95 shrink-0"
+                        title={items.length > 1 ? "Supprimer cette ligne" : "Effacer cette ligne"}
+                        aria-label="Supprimer la ligne"
                       >
-                        <Trash2 size={14} />
+                        <Trash2 size={15} className="stroke-[2.2]" />
                       </button>
                     </div>
                   </div>
