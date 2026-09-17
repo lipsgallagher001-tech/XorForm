@@ -3,8 +3,20 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
-import { X, Trash2, Calendar, MessageSquare, Share2, Download, Plus, History as HistoryIcon } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { 
+  X, 
+  Trash2, 
+  Calendar, 
+  MessageSquare, 
+  Share2, 
+  Download, 
+  Plus, 
+  History as HistoryIcon,
+  Search,
+  FileText,
+  Filter
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma } from '../types';
 import { deleteProforma, deleteMultipleProformas } from '../lib/supabase-helpers';
@@ -27,7 +39,7 @@ interface HistorySidebarProps {
   onExport: (p: Proforma) => void;
 }
 
-export default function HistorySidebar({
+export const HistorySidebar: React.FC<HistorySidebarProps> = ({
   isOpen,
   onClose,
   history,
@@ -36,21 +48,32 @@ export default function HistorySidebar({
   setSelectedHistoryIds,
   onLoadFromHistory,
   currentUserId,
-  isLoadingData,
   setIsLoadingData,
   docType,
   resetForm,
   onWhatsApp,
   onShare,
   onExport
-}: HistorySidebarProps) {
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<'ALL' | 'PROFORMA' | 'FACTURE'>('ALL');
+
   if (!isOpen) return null;
 
+  // Filtrage intelligent
+  const filteredHistory = history.filter(p => {
+    const matchesSearch = 
+      (p.client?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.number || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = filterType === 'ALL' || p.type === filterType;
+    return matchesSearch && matchesType;
+  });
+
   const toggleSelectAll = () => {
-    if (selectedHistoryIds.length === history.length) {
+    if (selectedHistoryIds.length === filteredHistory.length && filteredHistory.length > 0) {
       setSelectedHistoryIds([]);
     } else {
-      setSelectedHistoryIds(history.map(p => p.id));
+      setSelectedHistoryIds(filteredHistory.map(p => p.id));
     }
   };
 
@@ -62,157 +85,269 @@ export default function HistorySidebar({
 
   const deleteSelected = async () => {
     if (selectedHistoryIds.length === 0 || !currentUserId) return;
-    if (confirm(`Voulez-vous vraiment supprimer ${selectedHistoryIds.length} documents ?`)) {
+    if (window.confirm(`Supprimer définitivement ${selectedHistoryIds.length} document(s) ?`)) {
       setIsLoadingData(true);
       const result = await deleteMultipleProformas(selectedHistoryIds, currentUserId);
       setIsLoadingData(false);
       if (result.success) {
         setHistory(history.filter(p => !selectedHistoryIds.includes(p.id)));
         setSelectedHistoryIds([]);
-      } else {
-        alert(result.error?.userMessage || 'Erreur lors de la suppression des documents');
       }
     }
   };
 
   const deleteFromHistory = async (id: string) => {
     if (!currentUserId) return;
-    setIsLoadingData(true);
-    const result = await deleteProforma(id, currentUserId);
-    setIsLoadingData(false);
-    if (result.success) {
-      setHistory(history.filter(p => p.id !== id));
-      setSelectedHistoryIds(prev => prev.filter(i => i !== id));
-    } else {
-      alert(result.error?.userMessage || 'Erreur lors de la suppression du document');
+    if (window.confirm('Supprimer définitivement ce document ?')) {
+      setIsLoadingData(true);
+      const result = await deleteProforma(id, currentUserId);
+      setIsLoadingData(false);
+      if (result.success) {
+        setHistory(history.filter(p => p.id !== id));
+        setSelectedHistoryIds(prev => prev.filter(i => i !== id));
+      }
     }
   };
 
   return (
     <>
+      {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 animate-overlay-in"
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs z-40 animate-fade-in"
         onClick={onClose}
       />
+
+      {/* Drawer */}
       <aside 
-        className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white z-50 shadow-2xl p-8 flex flex-col slide-over"
+        className="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white z-50 shadow-2xl flex flex-col slide-over border-l border-border"
       >
-        <div className="flex justify-between items-center mb-8">
-          <h3 className="font-black text-2xl tracking-tighter text-slate-800 italic">Historique</h3>
-          <button onClick={onClose} className="bg-slate-50 p-2 rounded-xl text-slate-400 hover:text-slate-900 transition-colors cursor-pointer">
-            <X size={20} />
+        {/* Drawer Header */}
+        <div className="p-6 border-b border-border/80 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-slate-800">
+              <HistoryIcon size={17} />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-base tracking-tight text-slate-900">Historique des Documents</h3>
+              <p className="text-[11px] text-muted-foreground">{history.length} document(s) enregistrés</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            aria-label="Fermer"
+          >
+            <X size={18} />
           </button>
         </div>
 
-        {history.length > 0 && (
-          <div className="mb-4 flex items-center justify-between pb-4 border-b border-app-light-blue/20">
-            <div className="flex items-center gap-2">
-              <input 
-                type="checkbox" 
-                className="w-4 h-4 rounded accent-primary cursor-pointer"
-                checked={selectedHistoryIds.length === history.length && history.length > 0}
-                onChange={toggleSelectAll}
-              />
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tout sélectionner</span>
-            </div>
-            {selectedHistoryIds.length > 0 && (
+        {/* Search & Filter Bar */}
+        <div className="p-4 bg-slate-50/70 border-b border-border/80 space-y-3">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Rechercher par client ou numéro..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-border rounded-xl pl-9 pr-3 py-2 text-xs font-medium focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all placeholder:text-slate-400"
+            />
+            {searchQuery && (
               <button 
-                onClick={deleteSelected}
-                className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-[11px] font-bold hover:bg-red-100 transition-colors cursor-pointer"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 p-0.5"
               >
-                <Trash2 size={14} />
-                SUPPRIMER ({selectedHistoryIds.length})
+                <X size={12} />
               </button>
             )}
           </div>
-        )}
 
-        {history.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-            <div className="bg-slate-50 p-6 rounded-full text-slate-300">
-              <HistoryIcon size={48} strokeWidth={1} />
+          <div className="flex items-center justify-between gap-2">
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-border text-[10px] font-bold">
+              <button 
+                onClick={() => setFilterType('ALL')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === 'ALL' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Tous
+              </button>
+              <button 
+                onClick={() => setFilterType('PROFORMA')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === 'PROFORMA' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Devis
+              </button>
+              <button 
+                onClick={() => setFilterType('FACTURE')}
+                className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                  filterType === 'FACTURE' ? 'bg-slate-900 text-white shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                Factures
+              </button>
             </div>
-            <p className="text-sm font-medium text-slate-400">Aucun historique pour le moment.</p>
+
+            {/* Selection actions */}
+            {filteredHistory.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={toggleSelectAll}
+                  className="text-[10px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  {selectedHistoryIds.length === filteredHistory.length ? 'Désélectionner' : 'Tout sélectionner'}
+                </button>
+                {selectedHistoryIds.length > 0 && (
+                  <button 
+                    onClick={deleteSelected}
+                    className="flex items-center gap-1 px-2.5 py-1 bg-red-50 text-destructive rounded-lg text-[10px] font-bold hover:bg-red-100 transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={11} />
+                    <span>Supprimer ({selectedHistoryIds.length})</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Document List */}
+        {filteredHistory.length === 0 ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-3">
+            <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-400">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-700">Aucun document trouvé</p>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-xs">
+                {searchQuery ? 'Aucun résultat ne correspond à votre recherche.' : 'Vos devis et factures enregistrés apparaîtront ici.'}
+              </p>
+            </div>
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="text-xs font-bold text-secondary hover:underline cursor-pointer pt-1"
+              >
+                Effacer la recherche
+              </button>
+            )}
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto space-y-4 pr-2 -mr-2">
-            {history.map(p => (
-              <div 
-                key={p.id}
-                className={`group p-5 rounded-2xl bg-slate-50 border transition-all cursor-pointer relative flex gap-4 items-start ${selectedHistoryIds.includes(p.id) ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-primary/30 hover:bg-slate-50/80'}`}
-                onClick={() => onLoadFromHistory(p)}
-              >
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {filteredHistory.map(p => {
+              const isSelected = selectedHistoryIds.includes(p.id);
+              const isProforma = p.type === 'PROFORMA';
+
+              return (
                 <div 
-                  onClick={(e) => e.stopPropagation()} 
-                  className="pt-1"
+                  key={p.id}
+                  onClick={() => onLoadFromHistory(p)}
+                  className={`group p-4 rounded-2xl border transition-all cursor-pointer relative flex gap-3.5 items-start ${
+                    isSelected 
+                      ? 'border-secondary bg-blue-50/40 shadow-xs' 
+                      : 'bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs'
+                  }`}
                 >
-                  <input 
-                    type="checkbox" 
-                    className="w-4 h-4 rounded accent-primary cursor-pointer"
-                    checked={selectedHistoryIds.includes(p.id)}
-                    onChange={() => toggleSelectProforma(p.id)}
-                  />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <p className="font-bold text-slate-800 text-sm mb-0.5">{p.client.name.toUpperCase()}</p>
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{p.number}</p>
-                    </div>
-                    <p className="font-black text-lg text-slate-800 shrink-0 ml-2">{p.total.toLocaleString()} FCFA</p>
+                  <div 
+                    onClick={(e) => e.stopPropagation()} 
+                    className="pt-0.5"
+                  >
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 rounded accent-secondary cursor-pointer"
+                      checked={isSelected}
+                      onChange={() => toggleSelectProforma(p.id)}
+                    />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-slate-400">
-                      <Calendar size={12} />
-                      <span className="text-[10px] font-medium">{format(new Date(p.date), 'dd/MM/yy')}</span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+                            isProforma 
+                              ? 'bg-indigo-50 text-indigo-700 border border-indigo-200/60' 
+                              : 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                          }`}>
+                            {isProforma ? 'Devis' : 'Facture'}
+                          </span>
+                          <span className="font-mono text-[11px] font-bold text-slate-500">
+                            #{p.number}
+                          </span>
+                        </div>
+                        <p className="font-bold text-slate-900 text-xs truncate">
+                          {p.client?.name ? p.client.name.toUpperCase() : 'CLIENT SANS NOM'}
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="font-mono font-extrabold text-sm text-slate-900">
+                          {p.total.toLocaleString()} <span className="text-[10px] text-slate-500 font-semibold">F</span>
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex gap-1">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onWhatsApp(p); }}
-                        title="Partager sur WhatsApp"
-                        className="p-1.5 text-slate-400 hover:text-green-500 transition-colors cursor-pointer"
-                      >
-                        <MessageSquare size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onShare(p); }}
-                        title="Partager"
-                        className="p-1.5 text-slate-400 hover:text-primary transition-colors lg:hidden cursor-pointer"
-                      >
-                        <Share2 size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); onExport(p); }}
-                        title="Télécharger PDF"
-                        className="p-1.5 text-slate-400 hover:text-primary transition-colors cursor-pointer"
-                      >
-                        <Download size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); deleteFromHistory(p.id); }}
-                        title="Supprimer"
-                        className={`p-1.5 text-slate-400 hover:text-red-500 transition-colors cursor-pointer ${selectedHistoryIds.includes(p.id) ? 'opacity-0 pointer-events-none' : ''}`}
-                      >
-                        <Trash2 size={16} />
-                      </button>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-1.5 text-muted-foreground text-[10px]">
+                        <Calendar size={11} />
+                        <span>{format(new Date(p.date), 'dd MMM yyyy')}</span>
+                      </div>
+
+                      {/* Quick Actions */}
+                      <div className="flex items-center gap-0.5">
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onWhatsApp(p); }}
+                          title="WhatsApp"
+                          className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <MessageSquare size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onShare(p); }}
+                          title="Partager"
+                          className="p-1.5 text-slate-400 hover:text-secondary hover:bg-blue-50 rounded-lg transition-colors lg:hidden cursor-pointer"
+                        >
+                          <Share2 size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); onExport(p); }}
+                          title="Exporter PDF"
+                          className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Download size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); deleteFromHistory(p.id); }}
+                          title="Supprimer"
+                          className="p-1.5 text-slate-400 hover:text-destructive hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
         
-        <div className="mt-8 pt-6 border-t border-slate-100">
+        {/* Drawer Footer */}
+        <div className="p-4 border-t border-border bg-slate-50/70">
           <button 
             onClick={() => { resetForm(); onClose(); }}
-            className="w-full py-4 bg-primary text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:brightness-105 transition-colors uppercase tracking-widest text-xs cursor-pointer shadow-sm"
+            className="w-full py-3 bg-primary hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
           >
-            <Plus size={18} />
-            Nouvelle {docType === 'PROFORMA' ? 'Proforma' : 'Facture'}
+            <Plus size={15} />
+            <span>Nouveau {docType === 'PROFORMA' ? 'Devis Pro-forma' : 'Facture'}</span>
           </button>
         </div>
       </aside>
     </>
   );
-}
+};
+
+export default HistorySidebar;

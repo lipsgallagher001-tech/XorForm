@@ -63,9 +63,19 @@ export default function A4Preview({
   const acompte = Math.round(total * 0.75);
 
   return (
-    <section className={`flex-1 bg-slate-200 flex items-start justify-center p-0 sm:p-4 md:p-8 overflow-x-hidden overflow-y-auto ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+    <section className={`flex-1 bg-slate-200/80 flex flex-col items-center justify-start p-2 sm:p-6 md:p-8 overflow-x-hidden overflow-y-auto relative ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
+      {/* Barre d'état flottante de l'aperçu */}
+      <div className="mb-4 hidden sm:flex items-center gap-3 bg-white/90 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-200/90 shadow-xs text-xs font-medium text-slate-600 animate-fade-in">
+        <span className="flex items-center gap-1.5 font-bold text-slate-800">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          Rendu A4 Direct
+        </span>
+        <span className="text-slate-300">•</span>
+        <span className="text-[11px] font-mono text-slate-500">210 × 297 mm (300 DPI)</span>
+      </div>
+
       <div
-        className="w-full max-w-[600px] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.15)] flex flex-col relative overflow-hidden @container"
+        className="w-full max-w-[620px] bg-white paper-shadow ring-1 ring-slate-900/10 rounded-xs flex flex-col relative overflow-hidden @container transition-all"
         style={{ aspectRatio: '1 / 1.4142' }}
       >
 
@@ -183,17 +193,17 @@ export default function A4Preview({
             </thead>
             <tbody>
               {items.map((item, i) => (
-                <tr key={i} className="border-b border-slate-100 last:border-0">
+                <tr key={i} className="border-b border-slate-100 last:border-0 even:bg-slate-50/40">
                   <td className="py-[1.2cqw] px-[2cqw] text-slate-700 font-medium">
                     {item.description || 'Sans description'}
                   </td>
-                  <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-bold">
+                  <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-mono font-bold">
                     {item.quantity}
                   </td>
-                  <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-semibold whitespace-nowrap">
+                  <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-mono font-semibold whitespace-nowrap tabular-nums">
                     {item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
                   </td>
-                  <td className="py-[1.2cqw] px-[2cqw] text-right font-black text-primary whitespace-nowrap">
+                  <td className="py-[1.2cqw] px-[2cqw] text-right font-mono font-black text-primary whitespace-nowrap tabular-nums">
                     {(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
                   </td>
                 </tr>
@@ -209,7 +219,7 @@ export default function A4Preview({
               {/* Sous-total */}
               <div className="flex justify-between py-[0.8cqw] border-b border-slate-100">
                 <span className="text-[1.3cqw] text-slate-400 font-semibold uppercase tracking-wider">Sous-total</span>
-                <span className="text-[1.3cqw] text-slate-500 font-bold">{subtotal.toLocaleString()} F CFA</span>
+                <span className="text-[1.3cqw] text-slate-600 font-mono font-bold">{subtotal.toLocaleString()} F CFA</span>
               </div>
 
               {/* Remise */}
@@ -218,14 +228,14 @@ export default function A4Preview({
                   <span className="text-[1.3cqw] text-destructive font-semibold uppercase tracking-wider">
                     Remise ({discountPercent}%)
                   </span>
-                  <span className="text-[1.3cqw] text-destructive font-bold">−{discountAmount.toLocaleString()} F CFA</span>
+                  <span className="text-[1.3cqw] text-destructive font-mono font-bold">−{discountAmount.toLocaleString()} F CFA</span>
                 </div>
               )}
 
               {/* Total Net */}
-              <div className="mt-[1cqw] bg-primary rounded-[1.5cqw] px-[2.5cqw] py-[1.5cqw] flex items-center justify-between">
+              <div className="mt-[1cqw] bg-primary rounded-[1.5cqw] px-[2.5cqw] py-[1.5cqw] flex items-center justify-between shadow-xs">
                 <span className="text-[1.2cqw] font-bold text-white/60 uppercase tracking-wider">Total Net</span>
-                <span className="text-[2cqw] font-black text-white">{total.toLocaleString()} F CFA</span>
+                <span className="text-[2.1cqw] font-black text-white font-mono">{total.toLocaleString()} F CFA</span>
               </div>
 
               {/* Acompte */}

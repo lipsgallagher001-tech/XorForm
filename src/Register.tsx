@@ -109,37 +109,37 @@ export default function Register({ onRegister, onBackToLogin }: RegisterProps) {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden font-sans">
       {/* Motifs géométriques discrets en arrière-plan */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-        <div className="absolute -top-40 -right-40 w-96 h-96 border border-border rounded-full" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 border border-border rounded-full" />
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-40">
+        <div className="absolute -top-40 -right-40 w-96 h-96 border border-slate-200 rounded-full" />
+        <div className="absolute -bottom-40 -left-40 w-96 h-96 border border-slate-200 rounded-full" />
       </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-in-up">
         {/* Bouton retour minimaliste */}
         <button
           onClick={onBackToLogin}
-          className="flex items-center gap-2 text-slate-500 hover:text-primary mb-6 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-900 mb-4 font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
         >
           <ArrowLeft size={14} />
           <span>Retour à la connexion</span>
         </button>
 
         {/* Conteneur principal style carte minimale */}
-        <div className="bg-white rounded-3xl border border-border shadow-sm overflow-hidden">
+        <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden">
           
-          {/* En-tête minimaliste */}
-          <div className="p-8 text-center pb-4 pt-10">
-            <div className="w-16 h-16 bg-primary text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-sm">
-              <span className="text-3xl font-black">X</span>
+          {/* En-tête statutaire */}
+          <div className="p-8 text-center pb-4 pt-8">
+            <div className="w-14 h-14 bg-linear-to-br from-slate-900 via-slate-800 to-slate-950 text-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md ring-1 ring-white/20">
+              <span className="text-2xl font-black">X</span>
             </div>
-            <h1 className="text-4xl font-black text-primary tracking-tight mb-2">Créer un compte</h1>
-            <p className="text-slate-400 text-xs font-semibold uppercase tracking-widest">Rejoignez XorForm</p>
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mb-1">Créer un compte</h1>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Rejoignez XorForm</p>
           </div>
 
           {/* Formulaire d'inscription */}
-          <div className="px-8 pb-8 pt-4">
+          <div className="px-8 pb-8 pt-2">
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Nom Complet */}
               <div className="space-y-1.5">

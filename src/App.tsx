@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Plus, 
   Trash2, 
@@ -16,7 +16,15 @@ import {
   Calendar,
   MessageSquare,
   Share2,
-  Menu
+  Menu,
+  FilePlus,
+  Sparkles,
+  User,
+  Phone,
+  Hash,
+  Layers,
+  LogOut,
+  ChevronRight
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY } from './types';
@@ -27,6 +35,7 @@ import SEO from './components/SEO';
 import SettingsModal from './components/SettingsModal';
 import HistorySidebar from './components/HistorySidebar';
 import A4Preview from './components/A4Preview';
+import ToastContainer, { ToastMessage, ToastType } from './components/Toast';
 import { supabase } from './lib/supabase';
 import { 
   loadCompanySettings, 
@@ -46,6 +55,16 @@ export default function App() {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
   const [showRegister, setShowRegister] = useState(false);
+
+  // Toast Notifications State
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const addToast = useCallback((type: ToastType, message: string, title?: string) => {
+    const id = Math.random().toString(36).substring(2, 9);
+    setToasts(prev => [...prev, { id, type, message, title }]);
+  }, []);
+  const dismissToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
 
   // Vérifier la session Supabase au démarrage
   useEffect(() => {
@@ -458,7 +477,7 @@ export default function App() {
     if (!validation.success) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errors = formatValidationErrors(validation.error.issues as any[]);
-      alert(`Erreurs de validation:\n\n${errors}`);
+      addToast('error', errors, 'Erreurs de validation');
       console.error('Validation errors:', validation.error);
       return;
     }
@@ -475,10 +494,11 @@ export default function App() {
       console.log('✅ Sauvegarde réussie, mise à jour de l\'état local');
       // Mettre à jour l'état local
       setHistory([validation.data, ...history.filter(p => p.id !== (viewingHistoryId || currentId))]);
+      addToast('success', viewingHistoryId ? 'Document mis à jour avec succès !' : 'Nouveau document sauvegardé dans le Cloud.', 'Sauvegarde réussie');
       resetForm();
     } else {
       console.error('❌ Échec de la sauvegarde');
-      alert(result.error?.userMessage || 'Erreur lors de la sauvegarde du proforma.');
+      addToast('error', result.error?.userMessage || 'Erreur lors de la sauvegarde du proforma.', 'Échec de la sauvegarde');
     }
   };
 
@@ -543,9 +563,10 @@ export default function App() {
         getProformaWithItems(p)
       ]);
       await generatePDF(proformaWithItems, companyWithImages);
+      addToast('success', `PDF ${proformaWithItems.number} téléchargé avec succès.`, 'Export PDF réussi');
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+      addToast('error', 'Erreur lors de la génération du PDF. Veuillez réessayer.', 'Échec de l\'export');
     } finally {
       setIsGeneratingPDF(false);
     }
@@ -581,7 +602,7 @@ export default function App() {
       } else {
         // Fallback for browsers that don't support file sharing
         await generatePDF(proformaWithItems, companyWithImages);
-        alert("Le partage de fichiers n'est pas supporté par votre navigateur. Le fichier a été téléchargé.");
+        addToast('info', "Le partage de fichiers direct n'est pas supporté par votre navigateur. Le fichier a été téléchargé.", 'Téléchargement PDF');
       }
     } catch (error) {
       console.error('Error sharing:', error);
@@ -621,97 +642,97 @@ export default function App() {
       description="Créez des proformas et factures professionnels en quelques clics. Solution gratuite, intuitive et sécurisée pour gérer vos devis et facturations."
     />
 
-    <div className="h-screen bg-background text-foreground font-sans flex flex-col overflow-hidden">
+    <div className="h-screen bg-slate-50/50 text-foreground font-sans flex flex-col overflow-hidden">
       
-      {/* Barre de navigation supérieure minimaliste */}
-      <header className="h-16 bg-white border-b border-border flex items-center justify-between px-6 shrink-0 z-30 relative">
+      {/* ── BARRE DE NAVIGATION SUPÉRIEURE ULTRA-MODERNE ── */}
+      <header className="h-16 glass-header border-b border-border/80 flex items-center justify-between px-4 sm:px-6 shrink-0 z-30 relative shadow-xs">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center text-white font-black text-base shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-linear-to-br from-slate-900 via-slate-800 to-slate-950 text-white flex items-center justify-center font-black text-sm tracking-tighter shadow-md ring-1 ring-white/20">
             X
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="font-black text-lg tracking-tight text-primary">XorForm</span>
-            <span className="text-slate-400 font-semibold text-[10px] uppercase tracking-widest hidden sm:inline">Edition Personnelle</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="font-extrabold text-base tracking-tight text-slate-900">XorForm</span>
+              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                {docType === 'PROFORMA' ? 'Devis Pro-forma' : 'Facture Officielle'}
+              </span>
+            </div>
+            <span className="text-[10px] text-muted-foreground font-medium hidden md:inline">
+              Édition & Facturation Professionnelle
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Menu bureau (Masqué sur mobile) */}
-          <div className="hidden md:flex items-center gap-2">
-            {/* Bouton Historique épuré */}
-            <button 
-              onClick={async () => {
-                setShowHistory(true);
-                if (currentUserId && history.length === 0) {
-                  console.log('📥 Chargement historique à la demande...');
-                  setIsLoadingData(true);
-                  const proformas = await loadProformas(currentUserId, 20);
-                  setHistory(proformas);
-                  setIsLoadingData(false);
-                  console.log('✅ Historique chargé:', proformas.length);
-                }
-              }}
-              className="flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-all cursor-pointer uppercase tracking-wider"
-            >
-              <HistoryIcon size={14} />
-              <span>Historique</span>
-              {history.length > 0 && (
-                <span className="bg-primary text-white text-[9px] px-2 py-0.5 rounded-full font-black">
-                  {history.length}
-                </span>
-              )}
-            </button>
-            
-            <div className="w-px h-5 bg-border mx-1" />
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Nouveau Document Button */}
+          <button
+            onClick={() => {
+              resetForm();
+              addToast('info', 'Formulaire réinitialisé pour un nouveau document.', 'Nouveau document');
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+            title="Créer un nouveau document vierge"
+          >
+            <FilePlus size={15} className="text-secondary" />
+            <span className="hidden sm:inline">Nouveau</span>
+          </button>
 
-            {/* Bouton Paramètres */}
-            <button 
-              onClick={async () => {
-                setShowSettings(true);
-                if (currentUserId) {
-                  console.log('📥 Chargement paramètres + images...');
-                  const [settings, images] = await Promise.all([
-                    companyInfo.name === DEFAULT_COMPANY.name
-                      ? loadCompanySettings(currentUserId)
-                      : Promise.resolve(null),
-                    (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp)
-                      ? loadCompanyImages(currentUserId)
-                      : Promise.resolve(null),
-                  ]);
+          {/* Bouton Historique */}
+          <button 
+            onClick={async () => {
+              setShowHistory(true);
+              if (currentUserId && history.length === 0) {
+                setIsLoadingData(true);
+                const proformas = await loadProformas(currentUserId, 20);
+                setHistory(proformas);
+                setIsLoadingData(false);
+              }
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer relative"
+          >
+            <HistoryIcon size={15} />
+            <span className="hidden sm:inline">Historique</span>
+            {history.length > 0 && (
+              <span className="bg-secondary text-white text-[10px] px-1.5 py-0.2 rounded-full font-black">
+                {history.length}
+              </span>
+            )}
+          </button>
 
-                  setCompanyInfo((prev) => {
-                    const base = settings ? { ...prev, ...settings } : { ...prev };
-                    if (images) {
-                      base.logo = images.logo;
-                      base.signature = images.signature;
-                      base.stamp = images.stamp;
-                    }
-                    return base;
-                  });
-                  console.log('✅ Paramètres et images chargés');
-                }
-              }}
-              className="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
-              title="Paramètres"
-            >
-              <Settings size={16} />
-            </button>
-            
-            <div className="w-px h-5 bg-border mx-1" />
-            
-            {/* Bouton Déconnexion */}
-            <button 
-              onClick={handleLogout}
-              className="px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50/50 rounded-xl transition-all uppercase tracking-widest cursor-pointer"
-              title="Déconnexion"
-            >
-              Déconnexion
-            </button>
+          {/* Bouton Paramètres */}
+          <button 
+            onClick={async () => {
+              setShowSettings(true);
+              if (currentUserId) {
+                const [settings, images] = await Promise.all([
+                  companyInfo.name === DEFAULT_COMPANY.name
+                    ? loadCompanySettings(currentUserId)
+                    : Promise.resolve(null),
+                  (!companyInfo.logo && !companyInfo.signature && !companyInfo.stamp)
+                    ? loadCompanyImages(currentUserId)
+                    : Promise.resolve(null),
+                ]);
 
-            <div className="w-px h-5 bg-border mx-1" />
-          </div>
-          
-          {/* Bouton de génération de PDF vert émeraude (Toujours visible pour accessibilité rapide) */}
+                setCompanyInfo((prev) => {
+                  const base = settings ? { ...prev, ...settings } : { ...prev };
+                  if (images) {
+                    base.logo = images.logo;
+                    base.signature = images.signature;
+                    base.stamp = images.stamp;
+                  }
+                  return base;
+                });
+              }
+            }}
+            className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+            title="Paramètres de l'entreprise"
+          >
+            <Settings size={17} />
+          </button>
+
+          <div className="w-px h-5 bg-border mx-1 hidden sm:block" />
+
+          {/* Bouton Exporter PDF */}
           <button 
             onClick={() => handleExport({
               id: viewingHistoryId || currentId,
@@ -724,7 +745,7 @@ export default function App() {
               discountPercent
             })}
             disabled={isGeneratingPDF}
-            className="bg-accent hover:bg-accent/95 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer uppercase tracking-widest shadow-sm"
+            className="bg-primary hover:bg-slate-800 active:scale-[0.98] text-white px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
           >
             {isGeneratingPDF ? (
               <>
@@ -733,16 +754,25 @@ export default function App() {
               </>
             ) : (
               <>
-                <Download size={13} />
-                <span className="hidden xs:inline">Exporter PDF</span>
+                <Download size={14} />
+                <span>Exporter PDF</span>
               </>
             )}
           </button>
 
-          {/* Bouton Hamburger mobile (Masqué sur bureau) */}
+          {/* Bouton Déconnexion (Desktop) */}
+          <button 
+            onClick={handleLogout}
+            className="p-2 text-slate-400 hover:text-destructive hover:bg-red-50/80 rounded-xl transition-all cursor-pointer hidden md:flex items-center"
+            title="Déconnexion"
+          >
+            <LogOut size={16} />
+          </button>
+
+          {/* Bouton Hamburger mobile */}
           <button 
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="p-2 text-slate-500 hover:text-primary hover:bg-slate-50 rounded-xl transition-all md:hidden cursor-pointer"
+            className="p-2 text-slate-600 hover:text-primary hover:bg-slate-100 rounded-xl transition-all md:hidden cursor-pointer"
             title="Menu"
           >
             {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
@@ -751,7 +781,7 @@ export default function App() {
 
         {/* Tiroir Mobile Déroulant (Menu Hamburger) */}
         {isMobileMenuOpen && (
-          <div className="absolute top-16 left-0 right-0 bg-white border-b border-border shadow-md py-4 px-6 flex flex-col gap-4 animate-fade-in-down md:hidden z-30">
+          <div className="absolute top-16 left-0 right-0 bg-white/95 backdrop-blur-md border-b border-border shadow-xl py-4 px-6 flex flex-col gap-3 animate-fade-in-down md:hidden z-30">
             <button 
               onClick={async () => {
                 setIsMobileMenuOpen(false);
@@ -763,11 +793,11 @@ export default function App() {
                   setIsLoadingData(false);
                 }
               }}
-              className="flex items-center justify-between py-2 text-sm font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider text-left"
+              className="flex items-center justify-between py-2.5 text-xs font-bold text-slate-700 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
             >
               <span className="flex items-center gap-3">
                 <HistoryIcon size={16} />
-                Historique
+                Historique des documents
               </span>
               {history.length > 0 && (
                 <span className="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-black">
@@ -796,7 +826,7 @@ export default function App() {
                   });
                 }
               }}
-              className="flex items-center gap-3 py-2 text-sm font-bold text-slate-600 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider text-left"
+              className="flex items-center gap-3 py-2.5 text-xs font-bold text-slate-700 hover:text-primary transition-colors cursor-pointer uppercase tracking-wider"
             >
               <Settings size={16} />
               Paramètres Entreprise
@@ -809,8 +839,9 @@ export default function App() {
                 setIsMobileMenuOpen(false);
                 handleLogout();
               }}
-              className="flex items-center gap-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50/50 rounded-xl transition-all cursor-pointer uppercase tracking-wider text-left"
+              className="flex items-center gap-3 py-2.5 text-xs font-bold text-destructive hover:bg-red-50/50 rounded-xl transition-all cursor-pointer uppercase tracking-wider"
             >
+              <LogOut size={16} />
               Déconnexion
             </button>
           </div>
@@ -819,83 +850,101 @@ export default function App() {
 
 
       <main className="flex flex-1 overflow-hidden relative flex-col lg:flex-row">
-        {/* Sélecteur mobile minimaliste */}
-        <div className="flex lg:hidden bg-slate-50 p-1 shrink-0 border-b border-border">
+        {/* Sélecteur mobile épuré */}
+        <div className="flex lg:hidden bg-white p-1.5 shrink-0 border-b border-border shadow-xs">
           <button 
             onClick={() => setMobileView('editor')}
-            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all tracking-widest ${mobileView === 'editor' ? 'bg-white text-primary shadow-sm border border-border' : 'text-slate-400'}`}
+            className={`flex-1 py-2 text-xs font-extrabold rounded-lg transition-all tracking-wider ${mobileView === 'editor' ? 'bg-slate-100 text-slate-900 shadow-xs' : 'text-slate-400'}`}
           >
             ÉDITEUR
           </button>
           <button 
             onClick={() => setMobileView('preview')}
-            className={`flex-1 py-2 text-xs font-black rounded-lg transition-all tracking-widest ${mobileView === 'preview' ? 'bg-white text-primary shadow-sm border border-border' : 'text-slate-400'}`}
+            className={`flex-1 py-2 text-xs font-extrabold rounded-lg transition-all tracking-wider ${mobileView === 'preview' ? 'bg-slate-100 text-slate-900 shadow-xs' : 'text-slate-400'}`}
           >
-            APERÇU
+            APERÇU A4
           </button>
         </div>
 
-        {/* Editor Pane (Left) */}
-        <section className={`w-full lg:w-[450px] bg-white border-r border-border flex flex-col shrink-0 overflow-y-auto ${mobileView === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
-          <div className="p-4 md:p-6 space-y-6 flex-1">
+        {/* ── PANNEAU ÉDITEUR (GAUCHE) ── */}
+        <section className={`w-full lg:w-[480px] bg-slate-50/60 border-r border-border flex flex-col shrink-0 overflow-y-auto ${mobileView === 'editor' ? 'flex' : 'hidden lg:flex'}`}>
+          <div className="p-4 sm:p-6 space-y-5 flex-1">
 
-            {/* Sélecteur de type de document minimaliste */}
-            <div className="bg-slate-100/80 p-1.5 rounded-2xl flex gap-1.5 border border-border">
+            {/* Sélecteur de type de document (Pill Segmenté) */}
+            <div className="bg-slate-200/60 p-1 rounded-xl flex gap-1 border border-slate-200">
               <button 
                 onClick={() => setDocType('PROFORMA')}
-                className={`flex-1 py-2.5 text-[9px] font-black rounded-xl transition-all tracking-widest cursor-pointer ${docType === 'PROFORMA' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-slate-200/50'}`}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer tracking-wide flex items-center justify-center gap-1.5 ${
+                  docType === 'PROFORMA' 
+                    ? 'bg-white text-slate-900 shadow-xs ring-1 ring-black/5 font-extrabold' 
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                PROFORMA
+                <span>Devis Pro-forma</span>
               </button>
               <button 
                 onClick={() => setDocType('FACTURE')}
-                className={`flex-1 py-2.5 text-[9px] font-black rounded-xl transition-all tracking-widest cursor-pointer ${docType === 'FACTURE' ? 'bg-primary text-white shadow-sm' : 'text-slate-400 hover:text-primary hover:bg-slate-200/50'}`}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer tracking-wide flex items-center justify-center gap-1.5 ${
+                  docType === 'FACTURE' 
+                    ? 'bg-white text-slate-900 shadow-xs ring-1 ring-black/5 font-extrabold' 
+                    : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                }`}
               >
-                FACTURE
+                <span>Facture Définitive</span>
               </button>
             </div>
 
-            {/* Détails du Client */}
-            <div className="space-y-4">
-              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                <FileText size={13} />
-                Détails du Client
-              </h2>
+            {/* Carte 1: Informations Client & Document */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                  <User size={14} className="text-secondary" />
+                  Client & Document
+                </h2>
+                {viewingHistoryId && (
+                  <span className="text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 px-2 py-0.5 rounded-full">
+                    Modification en cours
+                  </span>
+                )}
+              </div>
               
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3.5">
+                <div className="grid grid-cols-2 gap-3">
                   {/* Identifiant */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Identifiant</label>
-                    <input 
-                      type="text" 
-                      value={proformaNumber} 
-                      readOnly 
-                      className="w-full bg-slate-50 border border-border rounded-xl px-3.5 py-2.5 text-xs text-slate-500 font-mono focus:outline-none"
-                    />
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Numéro</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={proformaNumber} 
+                        readOnly 
+                        className="w-full bg-slate-50 border border-border rounded-xl px-3 py-2 text-xs text-slate-600 font-mono font-semibold focus:outline-none select-all"
+                      />
+                      <Hash size={12} className="absolute right-3 top-3 text-slate-400" />
+                    </div>
                   </div>
                   {/* Date */}
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Date</label>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date d'émission</label>
                     <div className="relative">
                       <input 
                         type="text" 
                         value={format(new Date(proformaDate), 'dd MMM yyyy')} 
                         readOnly 
-                        className="w-full bg-slate-50 border border-border rounded-xl px-3.5 py-2.5 text-xs text-slate-500 focus:outline-none"
+                        className="w-full bg-slate-50 border border-border rounded-xl px-3 py-2 text-xs text-slate-600 font-medium focus:outline-none"
                       />
-                      <Calendar size={13} className="absolute right-3.5 top-3.5 text-slate-400" />
+                      <Calendar size={13} className="absolute right-3 top-2.5 text-slate-400" />
                     </div>
                   </div>
                 </div>
 
                 {/* Nom du Client */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Nom du Client</label>
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Nom du Client ou Entreprise *</label>
                   <div className="relative">
                     <input 
                       type="text" 
-                      placeholder="Studio Horizon Digital"
+                      placeholder="Ex: Société Horizon SARL"
                       value={client.name}
                       onChange={e => { 
                         setClient({...client, name: e.target.value}); 
@@ -931,10 +980,10 @@ export default function App() {
                           }
                         }
                       }}
-                      className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
+                      className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all placeholder:text-slate-300"
                     />
                     {showClientSuggestions && clientSuggestions.length > 0 && (
-                      <ul className="absolute z-20 top-full left-0 right-0 mt-2 bg-white border border-border rounded-2xl shadow-lg overflow-hidden">
+                      <ul className="absolute z-20 top-full left-0 right-0 mt-1.5 bg-white border border-border rounded-2xl shadow-xl overflow-hidden animate-fade-in">
                         {clientSuggestions.map((c, idx) => (
                           <li
                             key={idx}
@@ -943,14 +992,19 @@ export default function App() {
                               setShowClientSuggestions(false); 
                               setActiveSuggestionIndex(-1);
                             }}
-                            className={`px-4 py-3 cursor-pointer transition-colors ${
+                            className={`px-4 py-2.5 cursor-pointer transition-colors flex items-center justify-between ${
                               idx === activeSuggestionIndex 
-                                ? 'bg-slate-100 text-primary font-bold' 
-                                : 'hover:bg-slate-50'
+                                ? 'bg-secondary/10 text-secondary font-bold' 
+                                : 'hover:bg-slate-50 text-slate-800'
                             }`}
                           >
-                            <span className="block text-xs font-bold text-foreground truncate">{c.name}</span>
-                            {c.phone && <span className="block text-[9px] text-slate-400 font-semibold uppercase tracking-wider">{c.phone}</span>}
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                                {c.name.charAt(0).toUpperCase()}
+                              </div>
+                              <span className="text-xs font-bold truncate">{c.name}</span>
+                            </div>
+                            {c.phone && <span className="text-[10px] text-muted-foreground font-mono">{c.phone}</span>}
                           </li>
                         ))}
                       </ul>
@@ -959,49 +1013,65 @@ export default function App() {
                 </div>
 
                 {/* Téléphone */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest">Téléphone</label>
-                  <input 
-                    type="text" 
-                    placeholder="+33 6 12 34 56 78"
-                    value={client.phone}
-                    onChange={e => setClient({...client, phone: e.target.value})}
-                    className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-sm focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
-                  />
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Téléphone de contact</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="+225 07 00 00 00 00"
+                      value={client.phone}
+                      onChange={e => setClient({...client, phone: e.target.value})}
+                      className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-xs font-medium focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all placeholder:text-slate-300"
+                    />
+                    <Phone size={13} className="absolute right-3.5 top-3 text-slate-400" />
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* Services / Produits */}
-            <div className="pt-2 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                  <CheckCircle2 size={13} />
-                  Services / Produits
-                </h3>
+            {/* Carte 2: Prestations & Articles */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[11px] font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+                    <Layers size={14} className="text-secondary" />
+                    Articles & Prestations
+                  </h3>
+                  <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    {items.length}
+                  </span>
+                </div>
                 <button 
                   onClick={() => addItem()}
-                  className="text-primary text-[10px] font-black hover:text-secondary flex items-center gap-1.5 transition-colors cursor-pointer uppercase tracking-widest py-2 px-3 hover:bg-slate-50 rounded-xl -my-2 -mx-3"
+                  className="text-secondary text-xs font-bold hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer px-2.5 py-1 rounded-lg hover:bg-blue-50/80"
                 >
-                  <Plus size={11} />
-                  Ajouter ligne
+                  <Plus size={13} />
+                  <span>Ajouter une ligne</span>
                 </button>
               </div>
+
+              {/* En-tête des colonnes */}
+              <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                <div className="col-span-6">Description</div>
+                <div className="col-span-2 text-center">Qté</div>
+                <div className="col-span-3 text-right">P.U (FCFA)</div>
+                <div className="col-span-1"></div>
+              </div>
               
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 {items.map((item) => (
                   <div 
                     key={item.id}
-                    className="grid grid-cols-12 gap-2.5 group item-row-enter items-center"
+                    className="grid grid-cols-12 gap-2 group item-row-enter items-center bg-slate-50/40 p-1 rounded-xl hover:bg-slate-50/90 transition-colors"
                   >
                     <div className="col-span-6">
                       <input 
                         type="text" 
                         id={`desc-input-${item.id}`}
-                        placeholder="Description du produit/service..."
+                        placeholder="Description du produit ou service..."
                         value={item.description}
                         onChange={e => updateItem(item.id, { description: e.target.value })}
-                        className="w-full bg-white border border-border rounded-xl px-3 py-2 text-xs focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-medium"
+                        className="w-full bg-white border border-border rounded-xl px-3 py-2 text-xs focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all font-medium placeholder:text-slate-300"
                       />
                     </div>
                     <div className="col-span-2">
@@ -1012,11 +1082,11 @@ export default function App() {
                         pattern="[0-9]*"
                         value={item.quantity}
                         onChange={e => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                        className="w-full bg-white border border-border rounded-xl px-2 py-2 text-xs text-center focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-bold"
+                        className="w-full bg-white border border-border rounded-xl px-2 py-2 text-xs text-center font-mono font-bold focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all"
                       />
                     </div>
                     <div className="col-span-3">
-                      <div className="flex items-center border border-border rounded-xl bg-white overflow-hidden focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                      <div className="flex items-center border border-border rounded-xl bg-white overflow-hidden focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 transition-all">
                         <input 
                           type="number" 
                           min="0"
@@ -1045,15 +1115,16 @@ export default function App() {
                               }
                             }
                           }}
-                          className="w-full px-2 py-2 text-xs text-right outline-none font-bold bg-transparent"
+                          className="w-full px-2.5 py-2 text-xs text-right outline-none font-mono font-bold bg-transparent"
                         />
-                        <span className="text-[8px] font-black text-slate-400 bg-slate-50 px-2 py-2.5 border-l border-border shrink-0 select-none uppercase tracking-wider">F</span>
+                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-2 border-l border-border shrink-0 select-none">F</span>
                       </div>
                     </div>
-                    <div className="col-span-1 flex items-center justify-center opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                    <div className="col-span-1 flex items-center justify-center">
                       <button 
                         onClick={() => removeItem(item.id)}
-                        className="text-slate-400 hover:text-destructive cursor-pointer transition-colors p-3 -m-3 rounded-lg"
+                        disabled={items.length === 1}
+                        className="text-slate-300 hover:text-destructive disabled:opacity-20 cursor-pointer disabled:cursor-not-allowed transition-colors p-1.5 rounded-lg hover:bg-red-50"
                         title="Supprimer la ligne"
                       >
                         <Trash2 size={14} />
@@ -1062,49 +1133,88 @@ export default function App() {
                   </div>
                 ))}
               </div>
+
+              {/* Bouton d'ajout rapide sous les lignes */}
+              <button
+                onClick={() => addItem()}
+                className="w-full py-2.5 border border-dashed border-slate-200 hover:border-secondary/40 text-slate-500 hover:text-secondary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:bg-blue-50/30"
+              >
+                <Plus size={13} />
+                <span>Ajouter un article ou une prestation</span>
+              </button>
             </div>
 
-            {/* Réduction */}
-            <div className="pt-4 border-t border-border">
+            {/* Carte 3: Réduction & Remise */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 sm:p-5 shadow-xs">
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Réduction (%)</label>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700">Remise commerciale</label>
+                  <p className="text-[10px] text-muted-foreground">Appliquer un pourcentage sur le sous-total</p>
+                </div>
                 <div className="flex items-center gap-3">
                   {discountAmount > 0 && (
-                    <span className="text-[10px] font-black text-slate-400">-{discountAmount.toLocaleString()} F CFA</span>
+                    <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 font-mono">
+                      -{discountAmount.toLocaleString()} F
+                    </span>
                   )}
-                  <input 
-                    type="number" 
-                    value={discountPercent || ''}
-                    inputMode="decimal"
-                    onChange={e => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
-                    placeholder="0"
-                    className="w-20 bg-white border border-border rounded-xl px-3 py-2 text-right text-xs focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all font-bold"
-                  />
+                  <div className="flex items-center border border-border rounded-xl bg-white overflow-hidden focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 transition-all">
+                    <input 
+                      type="number" 
+                      value={discountPercent || ''}
+                      inputMode="decimal"
+                      onChange={e => setDiscountPercent(Math.min(100, Math.max(0, parseFloat(e.target.value) || 0)))}
+                      placeholder="0"
+                      className="w-16 px-2.5 py-2 text-right text-xs font-mono font-bold outline-none"
+                    />
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-2 border-l border-border select-none">%</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Footer de l'éditeur */}
-          <div className="p-6 bg-slate-50 border-t border-border shrink-0">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Général</span>
-              <span className="text-2xl font-black text-primary tracking-tight">{total.toLocaleString()} F CFA</span>
+          {/* ── FOOTER DE L'ÉDITEUR AVEC TOTAUX ÉPURÉS ── */}
+          <div className="p-5 sm:p-6 bg-white border-t border-border shadow-xs shrink-0 space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs text-slate-500">
+                <span>Sous-total brut</span>
+                <span className="font-mono font-semibold">{subtotal.toLocaleString()} F CFA</span>
+              </div>
+              {discountPercent > 0 && (
+                <div className="flex justify-between items-center text-xs text-emerald-600 font-medium">
+                  <span>Remise accordée ({discountPercent}%)</span>
+                  <span className="font-mono">-{discountAmount.toLocaleString()} F CFA</span>
+                </div>
+              )}
+              <div className="flex justify-between items-baseline pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Net à payer</span>
+                <span className="text-2xl font-black text-slate-900 tracking-tight font-mono">
+                  {total.toLocaleString()} <span className="text-sm font-bold text-slate-500">F CFA</span>
+                </span>
+              </div>
             </div>
+
             <div>
               <button 
                 onClick={saveProforma}
                 disabled={!client.name || total === 0}
-                className="w-full bg-primary hover:bg-primary/95 text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer shadow-sm flex items-center justify-center"
+                className="w-full bg-primary hover:bg-slate-800 active:scale-[0.99] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer shadow-sm flex items-center justify-center gap-2"
               >
-                {viewingHistoryId ? 'Mettre à jour' : 'Sauvegarder'}
+                <CheckCircle2 size={16} />
+                <span>{viewingHistoryId ? 'Mettre à jour le document' : 'Enregistrer dans le Cloud'}</span>
               </button>
             </div>
-            <p className="text-[9px] text-slate-400 font-semibold uppercase tracking-widest mt-3.5 text-center">Sauvegarde Cloud Sécurisée</p>
+            
+            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-400 font-medium">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              <span>Sauvegarde Cloud Supabase</span>
+              <span>•</span>
+              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[9px]">Ctrl+S</span>
+            </div>
           </div>
         </section>
 
-        {/* Panneau d'Aperçu (Droite) - Rendu Premium A4 */}
+        {/* ── PANNEAU D'APERÇU A4 (DROITE) ── */}
         <A4Preview 
           companyInfo={companyInfo}
           docType={docType}
@@ -1150,22 +1260,26 @@ export default function App() {
     />
 
     {/* Mobile Totals Bar */}
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-border flex items-center justify-between z-30 shadow-[0_-10px_20px_rgba(10,31,44,0.05)]">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-border flex items-center justify-between z-30 shadow-[0_-10px_25px_rgba(0,0,0,0.06)]">
       <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</p>
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Net</p>
         <div className="flex items-baseline gap-2">
-          <p className="text-lg font-black text-primary">{total.toLocaleString()} FCFA</p>
-          {discountPercent > 0 && <span className="text-[10px] text-destructive font-bold">-{discountAmount.toLocaleString()}</span>}
+          <p className="text-lg font-black text-slate-900 font-mono">{total.toLocaleString()} FCFA</p>
+          {discountPercent > 0 && <span className="text-[10px] text-destructive font-bold font-mono">-{discountAmount.toLocaleString()}</span>}
         </div>
       </div>
       <button 
         onClick={saveProforma}
         disabled={!client.name || total === 0}
-        className="px-6 py-2.5 bg-accent text-white rounded-xl font-black text-xs uppercase tracking-widest shadow-lg shadow-accent/10 disabled:opacity-30 transition-all active:scale-95 cursor-pointer"
+        className="px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-wider shadow-md disabled:opacity-30 transition-all active:scale-95 cursor-pointer"
       >
         {viewingHistoryId ? 'MÀJ' : 'Enregistrer'}
       </button>
     </div>
+
+    {/* Notifications Toast */}
+    <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+
     <SupabaseStatus />
     </>
   );
