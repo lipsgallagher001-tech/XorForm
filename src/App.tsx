@@ -24,7 +24,8 @@ import {
   Hash,
   Layers,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  Pencil
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY } from './types';
@@ -36,6 +37,7 @@ import SettingsModal from './components/SettingsModal';
 import HistorySidebar from './components/HistorySidebar';
 import A4Preview from './components/A4Preview';
 import ToastContainer, { ToastMessage, ToastType } from './components/Toast';
+import ItemModal from './components/ItemModal';
 import { supabase } from './lib/supabase';
 import { 
   loadCompanySettings, 
@@ -250,6 +252,36 @@ export default function App() {
   const [isLoadingData, setIsLoadingData] = useState(false); // ⚡ Nouveau: indicateur de chargement
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState<number>(-1);
+
+  // Modale d'ajout / modification d'articles et prestations
+  const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ProformaItem | null>(null);
+
+  const handleOpenAddItemModal = () => {
+    setEditingItem(null);
+    setIsItemModalOpen(true);
+  };
+
+  const handleOpenEditItemModal = (item: ProformaItem) => {
+    setEditingItem(item);
+    setIsItemModalOpen(true);
+  };
+
+  const handleSaveItemFromModal = (itemData: Omit<ProformaItem, 'id'>, editId?: string) => {
+    if (editId) {
+      setItems(prev => prev.map(i => i.id === editId ? { ...i, ...itemData } : i));
+      addToast('success', 'Ligne mise à jour.', 'Modification enregistrée');
+    } else {
+      const newId = generateId();
+      setItems(prev => {
+        if (prev.length === 1 && !prev[0].description.trim() && prev[0].unitPrice === 0) {
+          return [{ id: newId, ...itemData }];
+        }
+        return [...prev, { id: newId, ...itemData }];
+      });
+      addToast('success', `"${itemData.description}" a été ajouté.`, 'Article ajouté');
+    }
+  };
 
   // Derivatives - TOUS LES HOOKS AVANT LE RETURN
   const subtotal = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0), [items]);
@@ -1046,7 +1078,8 @@ export default function App() {
                   </span>
                 </div>
                 <button 
-                  onClick={() => addItem()}
+                  type="button"
+                  onClick={handleOpenAddItemModal}
                   className="text-secondary text-xs font-bold hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer px-2.5 py-1 rounded-lg hover:bg-blue-50/80"
                 >
                   <Plus size={13} />
@@ -1056,10 +1089,10 @@ export default function App() {
 
               {/* En-tête des colonnes */}
               <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                <div className="col-span-6">Description</div>
+                <div className="col-span-5">Description</div>
                 <div className="col-span-2 text-center">Qté</div>
                 <div className="col-span-3 text-right">P.U (FCFA)</div>
-                <div className="col-span-1 text-center">Sup.</div>
+                <div className="col-span-2 text-center">Actions</div>
               </div>
               
               <div className="space-y-2.5">
@@ -1068,7 +1101,7 @@ export default function App() {
                     key={item.id}
                     className="grid grid-cols-12 gap-2 group item-row-enter items-center bg-slate-50/40 p-1.5 rounded-xl hover:bg-slate-50/90 transition-colors"
                   >
-                    <div className="col-span-6">
+                    <div className="col-span-5">
                       <input 
                         type="text" 
                         id={`desc-input-${item.id}`}
@@ -1124,7 +1157,16 @@ export default function App() {
                         <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-2 border-l border-border shrink-0 select-none">F</span>
                       </div>
                     </div>
-                    <div className="col-span-1 flex items-center justify-center">
+                    <div className="col-span-2 flex items-center justify-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditItemModal(item)}
+                        className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/80 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95 shrink-0"
+                        title="Modifier via la modale"
+                        aria-label="Modifier la ligne"
+                      >
+                        <Pencil size={13} />
+                      </button>
                       <button 
                         type="button"
                         onClick={() => removeItem(item.id)}
@@ -1141,7 +1183,8 @@ export default function App() {
 
               {/* Bouton d'ajout rapide sous les lignes */}
               <button
-                onClick={() => addItem()}
+                type="button"
+                onClick={handleOpenAddItemModal}
                 className="w-full py-2.5 border border-dashed border-slate-200 hover:border-secondary/40 text-slate-500 hover:text-secondary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:bg-blue-50/30"
               >
                 <Plus size={13} />
@@ -1262,6 +1305,14 @@ export default function App() {
       companyInfo={companyInfo}
       setCompanyInfo={setCompanyInfo}
       currentUserId={currentUserId}
+    />
+
+    {/* Modale d'ajout / modification d'une ligne d'article */}
+    <ItemModal 
+      isOpen={isItemModalOpen}
+      onClose={() => setIsItemModalOpen(false)}
+      onSave={handleSaveItemFromModal}
+      editingItem={editingItem}
     />
 
     {/* Mobile Totals Bar */}
