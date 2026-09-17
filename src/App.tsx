@@ -25,7 +25,8 @@ import {
   Layers,
   LogOut,
   ChevronRight,
-  Pencil
+  Pencil,
+  MapPin
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY } from './types';
@@ -1060,6 +1061,21 @@ export default function App() {
                       className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-xs font-medium focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all placeholder:text-slate-300"
                     />
                     <Phone size={13} className="absolute right-3.5 top-3 text-slate-400" />
+                  </div>
+                </div>
+
+                {/* Adresse / Ville */}
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider">Adresse ou Ville (optionnel)</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="Ex: Lomégan, Lomé - Togo"
+                      value={client.address || ''}
+                      onChange={e => setClient({...client, address: e.target.value})}
+                      className="w-full bg-white border border-border rounded-xl px-3.5 py-2.5 text-xs font-medium focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all placeholder:text-slate-300"
+                    />
+                    <MapPin size={13} className="absolute right-3.5 top-3 text-slate-400" />
                   </div>
                 </div>
               </div>

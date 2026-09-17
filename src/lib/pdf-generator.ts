@@ -227,73 +227,77 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   let y = HDR_H + 6;
 
-  // ── 2. SECTION CLIENT + MÉTADONNÉES ─────────────────────────────────────
-  const CLIENT_CARD_H = 22;
-  const META_W = 55;
-  const CLIENT_W = CW - META_W - 4;
+  // ── 2. SECTION DESTINATAIRE & RÉFÉRENCES (CARTE UNIQUE ÉLÉGANTE) ─────────
+  const CARD_H = 22;
+  const LEFT_W = CW * 0.60;
 
-  // Carte client
+  // Boîte globale unifiée
   doc.setFillColor(...SLATE50);
   doc.setDrawColor(...SLATE200);
-  doc.setLineWidth(0.15);
-  doc.roundedRect(ML, y, CLIENT_W, CLIENT_CARD_H, 2.5, 2.5, 'FD');
+  doc.setLineWidth(0.18);
+  doc.roundedRect(ML, y, CW, CARD_H, 2.2, 2.2, 'FD');
 
+  // Séparateur vertical délicat entre Destinataire et Références
+  doc.setDrawColor(...SLATE200);
+  doc.line(ML + LEFT_W, y + 2.5, ML + LEFT_W, y + CARD_H - 2.5);
+
+  // --- COLONNE GAUCHE : DESTINATAIRE ---
   doc.setTextColor(...SLATE400);
   doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
-  doc.text('DESTINATAIRE', ML + 4, y + 5);
+  const destTitle = proforma.type === 'FACTURE' ? 'FACTURÉ À (DESTINATAIRE)' : 'DESTINATAIRE DU DEVIS';
+  doc.text(destTitle, ML + 4, y + 5);
 
+  // Nom du client
   doc.setTextColor(...PRIMARY);
-  doc.setFontSize(10); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(proforma.client.name.toUpperCase()), ML + 4, y + 11.5);
+  doc.setFontSize(9.5); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText((proforma.client.name || 'NOM DU CLIENT').toUpperCase()), ML + 4, y + 10.5);
 
-  doc.setFontSize(7.5); doc.setFont('helvetica', 'normal');
+  // Coordonnées (Téléphone & Adresse)
+  doc.setFontSize(7); doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105); // slate-600
+  let contactStr = '';
+  if (proforma.client.phone) contactStr += `Tél: ${proforma.client.phone}`;
+  if (proforma.client.address) contactStr += (contactStr ? '   ·   ' : '') + `Lieu: ${proforma.client.address}`;
+  if (!contactStr) contactStr = 'Coordonnées du client à renseigner';
+  doc.text(cleanText(contactStr), ML + 4, y + 15);
+
+  // Ligne de pied Destinataire
+  doc.setFontSize(5.8); doc.setFont('helvetica', 'normal');
   doc.setTextColor(...SLATE400);
-  let clientInfoY = y + 16.5;
-  if (proforma.client.phone) {
-    doc.text(cleanText(proforma.client.phone), ML + 4, clientInfoY);
-  }
+  const footerNote = proforma.type === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée';
+  const clientRef = `Réf: ${proforma.client.name ? proforma.client.name.trim().substring(0, 3).toUpperCase() : 'CLT'}`;
+  doc.text(cleanText(footerNote), ML + 4, y + 19.8);
+  doc.text(cleanText(clientRef), ML + LEFT_W - 4, y + 19.8, { align: 'right' });
 
-  // Méta-données (3 mini-cartes à droite)
-  const metaX = ML + CLIENT_W + 4;
-  const metaCardH = 6.5;
-  const metaGap = 0.7;
+  // --- COLONNE DROITE : RÉFÉRENCES DU DOCUMENT ---
+  const rightX = ML + LEFT_W + 4;
+  const rightValX = ML + CW - 4;
 
-  // Carte numéro (navy)
-  doc.setFillColor(...PRIMARY);
-  doc.roundedRect(metaX, y, META_W, metaCardH, 1.5, 1.5, 'F');
-  doc.setTextColor(...WHITE);
-  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
-  doc.setGState(new (doc as any).GState({ opacity: 0.55 }));
-  doc.text('NUMERO', metaX + 3, y + 4.2);
-  doc.setGState(new (doc as any).GState({ opacity: 1 }));
-  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(`#${proforma.number}`), metaX + META_W - 3, y + 4.2, { align: 'right' });
-
-  // Carte date
-  const dateY = y + metaCardH + metaGap;
-  doc.setFillColor(...SLATE50);
-  doc.setDrawColor(...SLATE100);
-  doc.roundedRect(metaX, dateY, META_W, metaCardH, 1.5, 1.5, 'FD');
+  // Ligne 1 : Numéro
   doc.setTextColor(...SLATE400);
-  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
-  doc.text('DATE', metaX + 3, dateY + 4.2);
-  doc.setTextColor(...PRIMARY);
-  doc.setFontSize(7); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(format(new Date(proforma.date), 'dd/MM/yyyy')), metaX + META_W - 3, dateY + 4.2, { align: 'right' });
-
-  // Carte type
-  const typeY = dateY + metaCardH + metaGap;
-  doc.setFillColor(...SLATE50);
-  doc.setDrawColor(...SLATE100);
-  doc.roundedRect(metaX, typeY, META_W, metaCardH, 1.5, 1.5, 'FD');
-  doc.setTextColor(...SLATE400);
-  doc.setFontSize(6.5); doc.setFont('helvetica', 'normal');
-  doc.text('TYPE', metaX + 3, typeY + 4.2);
-  doc.setTextColor(...PRIMARY);
   doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
-  doc.text(cleanText(proforma.type === 'FACTURE' ? 'Facture' : 'Pro-Forma'), metaX + META_W - 3, typeY + 4.2, { align: 'right' });
+  doc.text('N° DOCUMENT', rightX, y + 6);
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(7.5); doc.setFont('helvetica', 'bold');
+  doc.text(cleanText(`#${proforma.number}`), rightValX, y + 6, { align: 'right' });
 
-  y += CLIENT_CARD_H + 7;
+  // Ligne 2 : Date
+  doc.setTextColor(...SLATE400);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text("DATE D'ÉMISSION", rightX, y + 11.5);
+  doc.setTextColor(...PRIMARY);
+  doc.setFontSize(7.2); doc.setFont('helvetica', 'normal');
+  doc.text(cleanText(format(new Date(proforma.date), 'dd/MM/yyyy')), rightValX, y + 11.5, { align: 'right' });
+
+  // Ligne 3 : Validité / Échéance
+  doc.setTextColor(...SLATE400);
+  doc.setFontSize(6.5); doc.setFont('helvetica', 'bold');
+  doc.text(proforma.type === 'FACTURE' ? 'ÉCHÉANCE' : "VALIDITÉ DE L'OFFRE", rightX, y + 17);
+  doc.setTextColor(...ACCENT);
+  doc.setFontSize(7.2); doc.setFont('helvetica', 'bold');
+  doc.text(proforma.type === 'FACTURE' ? 'À réception' : '30 jours', rightValX, y + 17, { align: 'right' });
+
+  y += CARD_H + 6;
 
   // ── 3. TABLEAU ───────────────────────────────────────────────────────────
   const subtotal    = proforma.items.reduce((a, i) => a + i.quantity * i.unitPrice, 0);

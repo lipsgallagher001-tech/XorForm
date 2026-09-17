@@ -131,43 +131,86 @@ export default function A4Preview({
           </div>
         </div>
 
-        {/* ── SECTION CLIENT + MÉTADONNÉES ───────────────────────────── */}
-        <div className="relative shrink-0 flex gap-[2cqw]" style={{ paddingLeft: '8%', paddingRight: '8%', paddingTop: '3cqw', paddingBottom: '2.5cqw' }}>
-          {/* Carte client */}
-          <div className="flex-1 bg-slate-50 rounded-[1.5cqw] px-[2.5cqw] py-[1.8cqw] border border-slate-100">
-            <p className="text-[1.1cqw] font-black text-slate-400 uppercase tracking-[0.2em] mb-[0.5cqw]">Destinataire</p>
-            <p className="text-[2cqw] font-black text-primary uppercase leading-tight">
-              {client.name || 'NOM DU CLIENT'}
-            </p>
-            {client.phone && (
-              <p className="text-[1.3cqw] text-slate-500 font-semibold mt-[0.4cqw]">
-                {client.phone}
-              </p>
-            )}
-            {client.address && (
-              <p className="text-[1.2cqw] text-slate-400 font-medium mt-[0.3cqw]">
-                {client.address}
-              </p>
-            )}
-          </div>
+        {/* ── SECTION DESTINATAIRE & RÉFÉRENCES (ÉLÉGANTE ET ÉQUILIBRÉE) ─ */}
+        <div className="relative shrink-0" style={{ paddingLeft: '8%', paddingRight: '8%', paddingTop: '2.6cqw', paddingBottom: '2.2cqw' }}>
+          <div className="bg-slate-50/70 border border-slate-200/90 rounded-[1.8cqw] p-[2.2cqw] grid grid-cols-12 gap-[2.5cqw] items-stretch shadow-2xs">
+            {/* Colonne Gauche: Destinataire (7 cols) */}
+            <div className="col-span-7 pr-[2.5cqw] border-r border-slate-200/80 flex flex-col justify-between space-y-[0.8cqw]">
+              <div>
+                <div className="flex items-center gap-[0.8cqw] mb-[0.6cqw]">
+                  <span className="w-[1.5cqw] h-[1.5cqw] rounded-full bg-primary text-white flex items-center justify-center text-[0.85cqw] font-black">
+                    ✓
+                  </span>
+                  <span className="text-[1.05cqw] font-black text-slate-400 uppercase tracking-[0.22em]">
+                    {docType === 'FACTURE' ? 'Facturé à (Destinataire)' : 'Destinataire du Devis'}
+                  </span>
+                </div>
+                
+                <p className="text-[2.3cqw] font-black text-primary uppercase leading-tight tracking-tight">
+                  {client.name || 'NOM DU CLIENT'}
+                </p>
+              </div>
 
-          {/* Méta-données */}
-          <div className="shrink-0 w-[28cqw] flex flex-col gap-[1cqw]">
-            <div className="bg-primary rounded-[1.5cqw] px-[2cqw] py-[1.5cqw] flex items-center justify-between">
-              <p className="text-[1.1cqw] font-bold text-white/50 uppercase tracking-wider">Numéro</p>
-              <p className="text-[1.5cqw] font-black text-white tracking-wider">#{proformaNumber}</p>
+              {/* Ligne coordonnées : Téléphone & Adresse */}
+              <div className="flex flex-wrap items-center gap-x-[2cqw] gap-y-[0.4cqw] text-[1.25cqw] text-slate-600 font-medium">
+                {client.phone && (
+                  <span className="flex items-center gap-[0.5cqw]">
+                    <span className="text-slate-400 font-bold text-[1cqw] uppercase tracking-wider">Tél:</span>
+                    <strong className="text-slate-800 font-bold font-mono">{client.phone}</strong>
+                  </span>
+                )}
+                {client.address && (
+                  <span className="flex items-center gap-[0.5cqw]">
+                    <span className="text-slate-400 font-bold text-[1cqw] uppercase tracking-wider">Lieu:</span>
+                    <span className="text-slate-700 font-medium">{client.address}</span>
+                  </span>
+                )}
+                {!client.phone && !client.address && (
+                  <span className="text-[1.1cqw] text-slate-400 italic">
+                    Coordonnées du client à renseigner
+                  </span>
+                )}
+              </div>
+
+              {/* Ligne informative comblant l'espace inférieur */}
+              <div className="pt-[0.7cqw] border-t border-slate-200/60 flex items-center justify-between text-[1cqw]">
+                <span className="text-slate-400 font-medium">
+                  {docType === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée'}
+                </span>
+                <span className="font-mono text-slate-400 font-semibold uppercase">
+                  Réf: {client.name ? client.name.trim().substring(0, 3).toUpperCase() : 'CLT'}
+                </span>
+              </div>
             </div>
-            <div className="bg-slate-50 rounded-[1.5cqw] px-[2cqw] py-[1.5cqw] flex items-center justify-between border border-slate-100">
-              <p className="text-[1.1cqw] font-bold text-slate-400 uppercase tracking-wider">Date</p>
-              <p className="text-[1.4cqw] font-black text-primary">
-                {format(new Date(proformaDate), 'dd/MM/yyyy')}
-              </p>
-            </div>
-            <div className="bg-slate-50 rounded-[1.5cqw] px-[2cqw] py-[1.5cqw] flex items-center justify-between border border-slate-100">
-              <p className="text-[1.1cqw] font-bold text-slate-400 uppercase tracking-wider">Type</p>
-              <p className="text-[1.1cqw] font-black text-primary uppercase tracking-wider">
-                {docType === 'FACTURE' ? 'Facture' : 'Pro-Forma'}
-              </p>
+
+            {/* Colonne Droite: Références du Document (5 cols) */}
+            <div className="col-span-5 flex flex-col justify-between space-y-[0.7cqw]">
+              <div className="flex items-center justify-between pb-[0.6cqw] border-b border-slate-200/70">
+                <span className="text-[1.05cqw] font-black text-slate-400 uppercase tracking-wider">
+                  N° Document
+                </span>
+                <span className="font-mono font-black text-[1.4cqw] text-primary bg-white px-[1.2cqw] py-[0.25cqw] rounded-[0.6cqw] border border-slate-200 shadow-2xs">
+                  #{proformaNumber}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between pb-[0.6cqw] border-b border-slate-200/70">
+                <span className="text-[1.05cqw] font-black text-slate-400 uppercase tracking-wider">
+                  Date d'émission
+                </span>
+                <span className="text-[1.25cqw] font-bold text-slate-700 font-mono">
+                  {format(new Date(proformaDate), 'dd/MM/yyyy')}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-[1.05cqw] font-black text-slate-400 uppercase tracking-wider">
+                  {docType === 'FACTURE' ? 'Échéance' : 'Validité de l\'offre'}
+                </span>
+                <span className="text-[1.1cqw] font-black text-emerald-700 bg-emerald-50 px-[1.2cqw] py-[0.25cqw] rounded-[0.6cqw] border border-emerald-200">
+                  {docType === 'FACTURE' ? 'À réception' : '30 jours'}
+                </span>
+              </div>
             </div>
           </div>
         </div>
