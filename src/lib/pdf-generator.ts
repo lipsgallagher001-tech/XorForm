@@ -304,7 +304,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const discountAmt = (subtotal * (proforma.discountPercent || 0)) / 100;
   const totalHT     = subtotal - discountAmt;
 
-  const totalsBlockH = 40 + (proforma.discountPercent ? 6 : 0); // espace réservé sous le tableau
+  const totalsBlockH = (proforma.type === 'PROFORMA' ? 40 : 32) + (proforma.discountPercent ? 6 : 0); // espace réservé sous le tableau
   const sigH2  = company.signatureHeight || 25;
   const stampH = company.stampHeight    || 25;
   const maxImgH = Math.max(sigH2, stampH);
@@ -421,20 +421,25 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.text(cleanText(`${totFmt} F CFA`), PW - MR - 3, y + 7.5, { align: 'right' });
   y += barH + 4;
 
-  // Acompte 75%
-  doc.setFontSize(8); doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...SLATE400);
-  doc.text('Acompte a verser (75%)', totX, y);
-  const acompteVal = Math.round(totalHT * 0.75);
-  const acompteFmt = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...ACCENT);
-  doc.text(cleanText(`${acompteFmt} F CFA`), PW - MR, y, { align: 'right' });
-  y += 8;
+  // Acompte 70% (uniquement sur le Devis Pro-forma)
+  if (proforma.type === 'PROFORMA') {
+    doc.setFontSize(8); doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...SLATE400);
+    doc.text('Acompte a verser (70%)', totX, y);
+    const acompteVal = Math.round(totalHT * 0.70);
+    const acompteFmt = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...ACCENT);
+    doc.text(cleanText(`${acompteFmt} F CFA`), PW - MR, y, { align: 'right' });
+    y += 8;
+  } else {
+    y += 2;
+  }
 
   // ── 5. MONTANT EN LETTRES ────────────────────────────────────────────────
-  const words    = numberToWords(Math.round(totalHT));
-  const wordsStr = cleanText(`Arretee la presente facture a la somme de : ${words} FRANCS CFA`);
+  const words        = numberToWords(Math.round(totalHT));
+  const docTypeLabel = proforma.type === 'FACTURE' ? 'facture' : 'facture pro-forma';
+  const wordsStr     = cleanText(`Arretee la presente ${docTypeLabel} a la somme de : ${words} FRANCS CFA`);
 
   // Barre accent gauche + italique
   doc.setFillColor(...ACCENT);
@@ -462,9 +467,9 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   };
 
   type CToken = { t: string; b: boolean };
-  const condDefs: CToken[][] = [
+  const condDefs: CToken[][] = proforma.type === 'PROFORMA' ? [
     [
-      { t: '75% d\'acompte', b: true },
+      { t: '70% d\'acompte', b: true },
       { t: ' exige avant le debut des travaux — solde a la livraison.', b: false },
     ],
     [
@@ -478,6 +483,23 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
     [
       { t: 'En cas d\'annulation', b: true },
       { t: ' apres demarrage, l\'acompte verse reste definitvement acquis.', b: false },
+    ],
+  ] : [
+    [
+      { t: 'Facture acquittee', b: true },
+      { t: ' ou solde a regler selon les modalites convenues.', b: false },
+    ],
+    [
+      { t: '2 retouches incluses', b: true },
+      { t: ' — toute modification supplementaire sera facturee.', b: false },
+    ],
+    [
+      { t: 'Livraison finale', b: true },
+      { t: ' reception et validation des livrables selon le devis.', b: false },
+    ],
+    [
+      { t: 'Garantie & Support', b: true },
+      { t: ' conformite et assistance technique sur les travaux livres.', b: false },
     ],
   ];
 

@@ -610,7 +610,8 @@ export default function App() {
   };
 
   const handleWhatsApp = (p: Proforma) => {
-    const text = `Bonjour ${(p.client.name || 'Client').toUpperCase()},\n\nVoici votre ${p.type === 'PROFORMA' ? 'devis' : 'facture'} N° ${p.number} d'un montant de ${p.total.toLocaleString()} FCFA.\n\nCordialement, ${companyInfo.name}.`;
+    const acompteMention = p.type === 'PROFORMA' ? ` (Acompte 70% : ${Math.round(p.total * 0.70).toLocaleString()} FCFA)` : '';
+    const text = `Bonjour ${(p.client.name || 'Client').toUpperCase()},\n\nVoici votre ${p.type === 'PROFORMA' ? 'devis' : 'facture'} N° ${p.number} d'un montant de ${p.total.toLocaleString()} FCFA.${acompteMention}\n\nCordialement, ${companyInfo.name}.`;
     const encodedText = encodeURIComponent(text);
     const phone = client.phone.replace(/\D/g, '');
     const url = phone ? `https://wa.me/${phone}?text=${encodedText}` : `https://wa.me/?text=${encodedText}`;
@@ -1256,6 +1257,12 @@ export default function App() {
                   {total.toLocaleString()} <span className="text-sm font-bold text-slate-500">F CFA</span>
                 </span>
               </div>
+              {docType === 'PROFORMA' && total > 0 && (
+                <div className="flex justify-between items-center text-xs text-amber-800 bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-2 mt-2 font-medium">
+                  <span className="font-bold uppercase text-[10px] tracking-wider text-amber-700">Acompte exigé (70%)</span>
+                  <span className="font-mono font-black text-amber-900 text-sm">{Math.round(total * 0.70).toLocaleString()} F CFA</span>
+                </div>
+              )}
             </div>
 
             <div>

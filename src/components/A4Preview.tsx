@@ -60,7 +60,7 @@ export default function A4Preview({
     return s.trim();
   };
 
-  const acompte = Math.round(total * 0.75);
+  const acompte = Math.round(total * 0.70);
 
   return (
     <section className={`flex-1 bg-slate-200/80 flex flex-col items-center justify-start p-2 sm:p-6 md:p-8 overflow-x-hidden overflow-y-auto relative ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
@@ -281,11 +281,13 @@ export default function A4Preview({
                 <span className="text-[2.1cqw] font-black text-white font-mono">{total.toLocaleString()} F CFA</span>
               </div>
 
-              {/* Acompte */}
-              <div className="mt-[0.8cqw] flex items-center justify-between px-[0.5cqw]">
-                <span className="text-[1.1cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte 75%</span>
-                <span className="text-[1.4cqw] font-black text-accent">{acompte.toLocaleString()} F CFA</span>
-              </div>
+              {/* Acompte (affiché uniquement sur les Devis Pro-forma) */}
+              {docType === 'PROFORMA' && (
+                <div className="mt-[0.8cqw] flex items-center justify-between px-[0.5cqw]">
+                  <span className="text-[1.1cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte 70%</span>
+                  <span className="text-[1.4cqw] font-black text-accent">{acompte.toLocaleString()} F CFA</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -294,7 +296,7 @@ export default function A4Preview({
         <div className="relative z-10 mt-[1.5cqw] shrink-0" style={{ paddingLeft: '8%', paddingRight: '8%' }}>
           <div className="border-l-[0.4cqw] border-accent pl-[1.5cqw] py-[0.5cqw]">
             <p className="text-[1.2cqw] italic text-slate-400 font-medium leading-relaxed">
-              Arrêtée la présente facture à la somme de :{' '}
+              Arrêtée la présente {docType === 'FACTURE' ? 'facture' : 'facture pro-forma'} à la somme de :{' '}
               <span className="font-black text-primary not-italic uppercase">
                 {convertNumberToWords(Math.round(total))} FRANCS CFA
               </span>
@@ -310,12 +312,17 @@ export default function A4Preview({
               <p className="text-[1.1cqw] font-black text-primary uppercase tracking-[0.2em]">Conditions Générales</p>
             </div>
             <div className="px-[2cqw] py-[1.2cqw] grid grid-cols-2 gap-x-[2.5cqw] gap-y-[0.6cqw] bg-white">
-              {[
-                { bold: '75% d\'acompte', rest: 'exigé avant le début des travaux — solde à la livraison.' },
+              {(docType === 'PROFORMA' ? [
+                { bold: '70% d\'acompte', rest: 'exigé avant le début des travaux — solde à la livraison.' },
                 { bold: '2 retouches incluses', rest: '— toute modification supplémentaire sera facturée.' },
                 { bold: 'Délais démarrent', rest: 'à réception de l\'acompte — tout retard client n\'engage pas le prestataire.' },
                 { bold: 'En cas d\'annulation', rest: 'après démarrage, l\'acompte versé reste définitivement acquis.' },
-              ].map((c, i) => (
+              ] : [
+                { bold: 'Facture acquittée', rest: 'ou solde à régler selon les modalités convenues.' },
+                { bold: '2 retouches incluses', rest: '— toute modification supplémentaire sera facturée.' },
+                { bold: 'Livraison finale', rest: 'réception et validation des livrables selon le devis.' },
+                { bold: 'Garantie & Support', rest: 'conformité et assistance technique sur les travaux livrés.' },
+              ]).map((c, i) => (
                 <div key={i} className="flex items-start gap-[0.7cqw]">
                   <div className="w-[0.3cqw] h-[1.5cqw] bg-accent/60 rounded-full mt-[0.3cqw] shrink-0" />
                   <p className="text-[1.1cqw] text-slate-500 font-medium leading-snug">
