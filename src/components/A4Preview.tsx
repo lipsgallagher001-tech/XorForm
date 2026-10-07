@@ -235,22 +235,30 @@ export default function A4Preview({
               </tr>
             </thead>
             <tbody>
-              {items.map((item, i) => (
-                <tr key={i} className="border-b border-slate-100 last:border-0 even:bg-slate-50/40">
-                  <td className="py-[1.2cqw] px-[2cqw] text-slate-700 font-medium">
-                    {item.description || 'Sans description'}
-                  </td>
-                  <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-mono font-bold">
-                    {item.quantity}
-                  </td>
-                  <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-mono font-semibold whitespace-nowrap tabular-nums">
-                    {item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
-                  </td>
-                  <td className="py-[1.2cqw] px-[2cqw] text-right font-mono font-black text-primary whitespace-nowrap tabular-nums">
-                    {(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-[4cqw] px-[2cqw] text-center text-slate-300 italic text-[1.2cqw]">
+                    Aucune prestation ajoutée
                   </td>
                 </tr>
-              ))}
+              ) : (
+                items.map((item, i) => (
+                  <tr key={item.id || i} className="border-b border-slate-100 last:border-0 even:bg-slate-50/40">
+                    <td className="py-[1.2cqw] px-[2cqw] text-slate-700 font-medium">
+                      {item.description || 'Sans description'}
+                    </td>
+                    <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-mono font-bold">
+                      {item.quantity}
+                    </td>
+                    <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-mono font-semibold whitespace-nowrap tabular-nums">
+                      {item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
+                    </td>
+                    <td className="py-[1.2cqw] px-[2cqw] text-right font-mono font-black text-primary whitespace-nowrap tabular-nums">
+                      {(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

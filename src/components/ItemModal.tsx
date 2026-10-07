@@ -92,10 +92,10 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-slate-900">
-                {editingItem ? 'Modifier la prestation' : 'Ajouter une prestation'}
+                {editingItem ? 'Modifier la prestation' : 'Ajouter un article ou une prestation'}
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                {editingItem ? 'Mettez à jour les détails de la ligne' : 'Complétez les informations de l\'article ou service'}
+                {editingItem ? 'Mettez à jour les détails de la ligne' : 'Renseignez la description, la quantité et le prix unitaire'}
               </p>
             </div>
           </div>

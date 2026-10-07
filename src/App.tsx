@@ -26,7 +26,8 @@ import {
   LogOut,
   ChevronRight,
   Pencil,
-  MapPin
+  MapPin,
+  PackageOpen
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY } from './types';
@@ -240,7 +241,7 @@ export default function App() {
   const [currentId, setCurrentId] = useState<string>(generateId);
   const [docType, setDocType] = useState<'PROFORMA' | 'FACTURE'>('PROFORMA');
   const [client, setClient] = useState<ClientInfo>({ name: '', phone: '' });
-  const [items, setItems] = useState<ProformaItem[]>([{ id: '1', description: '', quantity: 1, unitPrice: 0 }]);
+  const [items, setItems] = useState<ProformaItem[]>([]);
   const [proformaNumber, setProformaNumber] = useState<string>('');
   const [proformaDate, setProformaDate] = useState<string>(new Date().toISOString());
   const [discountPercent, setDiscountPercent] = useState<number>(0);
@@ -271,15 +272,10 @@ export default function App() {
   const handleSaveItemFromModal = (itemData: Omit<ProformaItem, 'id'>, editId?: string) => {
     if (editId) {
       setItems(prev => prev.map(i => i.id === editId ? { ...i, ...itemData } : i));
-      addToast('success', 'Ligne mise à jour.', 'Modification enregistrée');
+      addToast('success', 'Prestation mise à jour.', 'Modification enregistrée');
     } else {
       const newId = generateId();
-      setItems(prev => {
-        if (prev.length === 1 && !prev[0].description.trim() && prev[0].unitPrice === 0) {
-          return [{ id: newId, ...itemData }];
-        }
-        return [...prev, { id: newId, ...itemData }];
-      });
+      setItems(prev => [...prev, { id: newId, ...itemData }]);
       addToast('success', `"${itemData.description}" a été ajouté.`, 'Article ajouté');
     }
   };
@@ -465,13 +461,8 @@ export default function App() {
   };
 
   const removeItem = (id: string) => {
-    if (items.length > 1) {
-      setItems(items.filter(item => item.id !== id));
-      addToast('info', 'Ligne retirée du document.', 'Ligne supprimée');
-    } else {
-      setItems([{ id: generateId(), description: '', quantity: 1, unitPrice: 0 }]);
-      addToast('info', 'Ligne réinitialisée.', 'Ligne effacée');
-    }
+    setItems(prev => prev.filter(item => item.id !== id));
+    addToast('info', 'Prestation retirée du document.', 'Ligne supprimée');
   };
 
   const updateItem = (id: string, updates: Partial<ProformaItem>) => {
@@ -479,6 +470,11 @@ export default function App() {
   };
 
   const saveProforma = async () => {
+    if (items.length === 0) {
+      addToast('error', 'Veuillez ajouter au moins un article ou une prestation avant d\'enregistrer.', 'Document vide');
+      return;
+    }
+
     if (!client.name || !currentUserId) {
       console.warn('⚠️ Impossible de sauvegarder:', { 
         hasClientName: !!client.name, 
@@ -542,7 +538,7 @@ export default function App() {
   const resetForm = () => {
     setCurrentId(generateId());
     setClient({ name: '', phone: '' });
-    setItems([{ id: '1', description: '', quantity: 1, unitPrice: 0 }]);
+    setItems([]);
     setDiscountPercent(0);
     setViewingHistoryId(null);
     setProformaDate(new Date().toISOString());
@@ -782,7 +778,7 @@ export default function App() {
               total,
               discountPercent
             })}
-            disabled={isGeneratingPDF}
+            disabled={isGeneratingPDF || items.length === 0}
             className="bg-primary hover:bg-slate-800 active:scale-[0.98] text-white px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm"
           >
             {isGeneratingPDF ? (
@@ -1094,119 +1090,98 @@ export default function App() {
                     {items.length}
                   </span>
                 </div>
-                <button 
-                  type="button"
-                  onClick={handleOpenAddItemModal}
-                  className="text-secondary text-xs font-bold hover:text-blue-700 flex items-center gap-1 transition-colors cursor-pointer px-2.5 py-1 rounded-lg hover:bg-blue-50/80"
-                >
-                  <Plus size={13} />
-                  <span>Ajouter une ligne</span>
-                </button>
               </div>
 
-              {/* En-tête des colonnes */}
-              <div className="grid grid-cols-12 gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                <div className="col-span-5">Description</div>
-                <div className="col-span-2 text-center">Qté</div>
-                <div className="col-span-3 text-right">P.U (FCFA)</div>
-                <div className="col-span-2 text-center">Actions</div>
-              </div>
-              
-              <div className="space-y-2.5">
-                {items.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="grid grid-cols-12 gap-2 group item-row-enter items-center bg-slate-50/40 p-1.5 rounded-xl hover:bg-slate-50/90 transition-colors"
-                  >
-                    <div className="col-span-5">
-                      <input 
-                        type="text" 
-                        id={`desc-input-${item.id}`}
-                        placeholder="Description du produit ou service..."
-                        value={item.description}
-                        onChange={e => updateItem(item.id, { description: e.target.value })}
-                        className="w-full bg-white border border-border rounded-xl px-3 py-2 text-xs focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all font-medium placeholder:text-slate-300"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <input 
-                        type="number" 
-                        min="1"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={item.quantity}
-                        onChange={e => updateItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                        className="w-full bg-white border border-border rounded-xl px-2 py-2 text-xs text-center font-mono font-bold focus:border-secondary focus:ring-2 focus:ring-secondary/15 outline-none transition-all"
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <div className="flex items-center border border-border rounded-xl bg-white overflow-hidden focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 transition-all">
-                        <input 
-                          type="number" 
-                          min="0"
-                          inputMode="decimal"
-                          placeholder="0"
-                          value={item.unitPrice || ''}
-                          onChange={e => updateItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const isLastItem = items[items.length - 1].id === item.id;
-                              if (isLastItem) {
-                                const newId = generateId();
-                                addItem(newId);
-                                setTimeout(() => {
-                                  const nextInput = document.getElementById(`desc-input-${newId}`);
-                                  if (nextInput) nextInput.focus();
-                                }, 50);
-                              } else {
-                                const currentIndex = items.findIndex(i => i.id === item.id);
-                                const nextItem = items[currentIndex + 1];
-                                if (nextItem) {
-                                  const nextInput = document.getElementById(`desc-input-${nextItem.id}`);
-                                  if (nextInput) nextInput.focus();
-                                }
-                              }
-                            }
-                          }}
-                          className="w-full px-2.5 py-2 text-xs text-right outline-none font-mono font-bold bg-transparent"
-                        />
-                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-2 py-2 border-l border-border shrink-0 select-none">F</span>
-                      </div>
-                    </div>
-                    <div className="col-span-2 flex items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEditItemModal(item)}
-                        className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900 border border-slate-200/80 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95 shrink-0"
-                        title="Modifier via la modale"
-                        aria-label="Modifier la ligne"
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="w-8 h-8 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white border border-red-200/80 transition-all flex items-center justify-center cursor-pointer shadow-xs active:scale-95 shrink-0"
-                        title={items.length > 1 ? "Supprimer cette ligne" : "Effacer cette ligne"}
-                        aria-label="Supprimer la ligne"
-                      >
-                        <Trash2 size={15} className="stroke-[2.2]" />
-                      </button>
-                    </div>
+              {items.length === 0 ? (
+                <div className="py-7 px-4 bg-slate-50/70 border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center gap-2">
+                  <div className="w-11 h-11 rounded-2xl bg-white border border-slate-200 text-slate-400 flex items-center justify-center shadow-2xs">
+                    <PackageOpen size={20} className="text-secondary" />
                   </div>
-                ))}
-              </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">Aucune prestation ajoutée</p>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Définissez la description, la quantité et le prix unitaire en un clic.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenAddItemModal}
+                    className="mt-2 px-4 py-2 bg-primary hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+                  >
+                    <Plus size={14} />
+                    <span>Ajouter un article ou une prestation</span>
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {items.map((item, index) => {
+                      const lineTotal = item.quantity * item.unitPrice;
+                      return (
+                        <div 
+                          key={item.id}
+                          onClick={() => handleOpenEditItemModal(item)}
+                          className="group flex items-center justify-between p-3 bg-slate-50/60 hover:bg-blue-50/40 border border-slate-200/80 hover:border-secondary/40 rounded-xl transition-all cursor-pointer shadow-2xs"
+                          title="Cliquez pour modifier cette prestation"
+                        >
+                          <div className="flex-1 min-w-0 pr-3">
+                            <div className="flex items-center gap-2">
+                              <span className="w-5 h-5 rounded-md bg-slate-200/80 text-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {index + 1}
+                              </span>
+                              <p className="text-xs font-bold text-slate-900 truncate">
+                                {item.description || 'Sans description'}
+                              </p>
+                            </div>
+                            <p className="text-[11px] text-slate-400 font-medium mt-1 pl-7">
+                              <span className="font-semibold text-slate-700 font-mono">{item.quantity}</span> × {item.unitPrice.toLocaleString()} F CFA
+                            </p>
+                          </div>
 
-              {/* Bouton d'ajout rapide sous les lignes */}
-              <button
-                type="button"
-                onClick={handleOpenAddItemModal}
-                className="w-full py-2.5 border border-dashed border-slate-200 hover:border-secondary/40 text-slate-500 hover:text-secondary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:bg-blue-50/30"
-              >
-                <Plus size={13} />
-                <span>Ajouter un article ou une prestation</span>
-              </button>
+                          <div className="flex items-center gap-3 shrink-0">
+                            <div className="text-right">
+                              <span className="text-xs font-black text-primary font-mono whitespace-nowrap">
+                                {lineTotal.toLocaleString()} F CFA
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEditItemModal(item)}
+                                className="w-8 h-8 rounded-lg bg-white hover:bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                                title="Modifier cette prestation"
+                                aria-label="Modifier"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={() => removeItem(item.id)}
+                                className="w-8 h-8 rounded-lg bg-white hover:bg-red-50 text-slate-400 hover:text-destructive border border-slate-200 hover:border-red-200 transition-all flex items-center justify-center cursor-pointer shadow-2xs"
+                                title="Supprimer cette prestation"
+                                aria-label="Supprimer"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Bouton unique d'ajout */}
+                  <button
+                    type="button"
+                    onClick={handleOpenAddItemModal}
+                    className="w-full py-2.5 bg-slate-50 hover:bg-blue-50/50 border border-dashed border-slate-300 hover:border-secondary/60 text-slate-700 hover:text-secondary rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-2xs group"
+                  >
+                    <Plus size={14} className="text-slate-400 group-hover:text-secondary transition-colors" />
+                    <span>Ajouter un article ou une prestation</span>
+                  </button>
+                </>
+              )}
             </div>
 
             {/* Carte 3: Réduction & Remise */}
@@ -1268,7 +1243,7 @@ export default function App() {
             <div>
               <button 
                 onClick={saveProforma}
-                disabled={!client.name || total === 0}
+                disabled={!client.name || total === 0 || items.length === 0}
                 className="w-full bg-primary hover:bg-slate-800 active:scale-[0.99] text-white py-3.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-35 disabled:cursor-not-allowed cursor-pointer shadow-sm flex items-center justify-center gap-2"
               >
                 <CheckCircle2 size={16} />
