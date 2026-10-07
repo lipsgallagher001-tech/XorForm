@@ -2,6 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { Proforma, CompanyInfo } from '../types';
+import { getConditions, getConditionsTitle, getAcompteRate, getBusinessTypeLabel } from './conditions';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -264,7 +265,8 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   // Ligne de pied Destinataire
   doc.setFontSize(5.8); doc.setFont('helvetica', 'normal');
   doc.setTextColor(...SLATE400);
-  const footerNote = proforma.type === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée';
+  const bLabel = getBusinessTypeLabel(proforma.businessType);
+  const footerNote = `${proforma.type === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée'} · ${bLabel}`;
   const clientRef = `Réf: ${proforma.client.name ? proforma.client.name.trim().substring(0, 3).toUpperCase() : 'CLT'}`;
   doc.text(cleanText(footerNote), ML + 4, y + 19.8);
   doc.text(cleanText(clientRef), ML + LEFT_W - 4, y + 19.8, { align: 'right' });
@@ -421,12 +423,14 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   doc.text(cleanText(`${totFmt} F CFA`), PW - MR - 3, y + 7.5, { align: 'right' });
   y += barH + 4;
 
-  // Acompte 70% (uniquement sur le Devis Pro-forma)
+  // Acompte (uniquement sur le Devis Pro-forma)
+  const bType = proforma.businessType || 'GRAPHISME';
+  const acomptePct = getAcompteRate(bType);
   if (proforma.type === 'PROFORMA') {
     doc.setFontSize(8); doc.setFont('helvetica', 'normal');
     doc.setTextColor(...SLATE400);
-    doc.text('Acompte a verser (70%)', totX, y);
-    const acompteVal = Math.round(totalHT * 0.70);
+    doc.text(`Acompte a verser (${acomptePct}%)`, totX, y);
+    const acompteVal = Math.round(totalHT * (acomptePct / 100));
     const acompteFmt = acompteVal.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ');
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...ACCENT);
@@ -467,41 +471,11 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   };
 
   type CToken = { t: string; b: boolean };
-  const condDefs: CToken[][] = proforma.type === 'PROFORMA' ? [
-    [
-      { t: '70% d\'acompte', b: true },
-      { t: ' exige avant le debut des travaux — solde a la livraison.', b: false },
-    ],
-    [
-      { t: '2 retouches incluses', b: true },
-      { t: ' — toute modification supplementaire sera facturee.', b: false },
-    ],
-    [
-      { t: 'Delais demarrent', b: true },
-      { t: ' a reception de l\'acompte — tout retard client n\'engage pas le prestataire.', b: false },
-    ],
-    [
-      { t: 'En cas d\'annulation', b: true },
-      { t: ' apres demarrage, l\'acompte verse reste definitvement acquis.', b: false },
-    ],
-  ] : [
-    [
-      { t: 'Facture acquittee', b: true },
-      { t: ' ou solde a regler selon les modalites convenues.', b: false },
-    ],
-    [
-      { t: '2 retouches incluses', b: true },
-      { t: ' — toute modification supplementaire sera facturee.', b: false },
-    ],
-    [
-      { t: 'Livraison finale', b: true },
-      { t: ' reception et validation des livrables selon le devis.', b: false },
-    ],
-    [
-      { t: 'Garantie & Support', b: true },
-      { t: ' conformite et assistance technique sur les travaux livres.', b: false },
-    ],
-  ];
+  const conditions = getConditions(proforma.type, bType);
+  const condDefs: CToken[][] = conditions.map(c => [
+    { t: cleanText(c.bold), b: true },
+    { t: cleanText(' ' + c.rest), b: false },
+  ]);
 
   type RWord = { t: string; b: boolean };
   const wrapCond = (tokens: CToken[], maxW: number): RWord[][] => {
@@ -553,7 +527,8 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
 
   doc.setFontSize(7); doc.setFont('helvetica', 'bold');
   doc.setTextColor(...PRIMARY);
-  doc.text('CONDITIONS GENERALES', ML + COND_PX + 7, y + 5);
+  const condHeaderTitle = cleanText(getConditionsTitle(bType).toUpperCase());
+  doc.text(condHeaderTitle, ML + COND_PX + 7, y + 5);
 
   const condStartY = y + COND_HDR + COND_PY;
   for (let row = 0; row < 2; row++) {

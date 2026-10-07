@@ -31,6 +31,8 @@ export interface CompanyInfo {
   rcs?: string;
 }
 
+export type BusinessType = 'GRAPHISME' | 'PRINT' | 'WEB';
+
 export interface ClientInfo {
   name: string;
   phone?: string;
@@ -40,6 +42,7 @@ export interface ClientInfo {
 export interface Proforma {
   id: string;
   type: 'PROFORMA' | 'FACTURE';
+  businessType?: BusinessType;
   number: string;
   date: string;
   client: ClientInfo;

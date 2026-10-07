@@ -39,6 +39,7 @@ export const ProformaSchema = z.object({
   type: z.enum(['PROFORMA', 'FACTURE'], {
     message: "Type doit être PROFORMA ou FACTURE"
   }),
+  businessType: z.enum(['GRAPHISME', 'PRINT', 'WEB']).optional().default('GRAPHISME'),
   number: z.string().min(1, "Numéro de document requis"),
   date: z.string().refine(
     (val) => !isNaN(new Date(val).getTime()),

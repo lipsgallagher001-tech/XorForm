@@ -5,11 +5,13 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { CompanyInfo, ClientInfo, ProformaItem } from '../types';
+import { CompanyInfo, ClientInfo, ProformaItem, BusinessType } from '../types';
+import { getConditions, getConditionsTitle, getAcompteRate, getBusinessTypeLabel } from '../lib/conditions';
 
 interface A4PreviewProps {
   companyInfo: CompanyInfo;
   docType: 'PROFORMA' | 'FACTURE';
+  businessType?: BusinessType;
   proformaDate: string;
   proformaNumber: string;
   client: ClientInfo;
@@ -24,6 +26,7 @@ interface A4PreviewProps {
 export default function A4Preview({
   companyInfo,
   docType,
+  businessType = 'GRAPHISME',
   proformaDate,
   proformaNumber,
   client,
@@ -60,7 +63,10 @@ export default function A4Preview({
     return s.trim();
   };
 
-  const acompte = Math.round(total * 0.70);
+  const acompteRate = getAcompteRate(businessType);
+  const acompte = Math.round(total * (acompteRate / 100));
+  const conditions = getConditions(docType, businessType);
+  const conditionsTitle = getConditionsTitle(businessType);
 
   return (
     <section className={`flex-1 bg-slate-200/80 flex flex-col items-center justify-start p-2 sm:p-6 md:p-8 overflow-x-hidden overflow-y-auto relative ${mobileView === 'preview' ? 'flex' : 'hidden lg:flex'}`}>
@@ -174,8 +180,10 @@ export default function A4Preview({
 
               {/* Ligne informative comblant l'espace inférieur */}
               <div className="pt-[0.7cqw] border-t border-slate-200/60 flex items-center justify-between text-[1cqw]">
-                <span className="text-slate-400 font-medium">
-                  {docType === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée'}
+                <span className="text-slate-400 font-medium flex items-center gap-[0.5cqw]">
+                  <span>{docType === 'FACTURE' ? 'Facture officielle émise' : 'Offre commerciale personnalisée'}</span>
+                  <span className="text-slate-300">·</span>
+                  <strong className="text-primary font-bold">{getBusinessTypeLabel(businessType)}</strong>
                 </span>
                 <span className="font-mono text-slate-400 font-semibold uppercase">
                   Réf: {client.name ? client.name.trim().substring(0, 3).toUpperCase() : 'CLT'}
@@ -292,7 +300,7 @@ export default function A4Preview({
               {/* Acompte (affiché uniquement sur les Devis Pro-forma) */}
               {docType === 'PROFORMA' && (
                 <div className="mt-[0.8cqw] flex items-center justify-between px-[0.5cqw]">
-                  <span className="text-[1.1cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte 70%</span>
+                  <span className="text-[1.1cqw] text-slate-400 font-semibold uppercase tracking-wider">Acompte {acompteRate}%</span>
                   <span className="text-[1.4cqw] font-black text-accent">{acompte.toLocaleString()} F CFA</span>
                 </div>
               )}
@@ -317,20 +325,10 @@ export default function A4Preview({
           <div className="rounded-[1.5cqw] overflow-hidden border border-slate-100">
             <div className="bg-slate-50 px-[2cqw] py-[0.9cqw] flex items-center gap-[1cqw]">
               <div className="w-[3cqw] h-[0.2cqw] bg-primary rounded-full" />
-              <p className="text-[1.1cqw] font-black text-primary uppercase tracking-[0.2em]">Conditions Générales</p>
+              <p className="text-[1.1cqw] font-black text-primary uppercase tracking-[0.2em]">{conditionsTitle}</p>
             </div>
             <div className="px-[2cqw] py-[1.2cqw] grid grid-cols-2 gap-x-[2.5cqw] gap-y-[0.6cqw] bg-white">
-              {(docType === 'PROFORMA' ? [
-                { bold: '70% d\'acompte', rest: 'exigé avant le début des travaux — solde à la livraison.' },
-                { bold: '2 retouches incluses', rest: '— toute modification supplémentaire sera facturée.' },
-                { bold: 'Délais démarrent', rest: 'à réception de l\'acompte — tout retard client n\'engage pas le prestataire.' },
-                { bold: 'En cas d\'annulation', rest: 'après démarrage, l\'acompte versé reste définitivement acquis.' },
-              ] : [
-                { bold: 'Facture acquittée', rest: 'ou solde à régler selon les modalités convenues.' },
-                { bold: '2 retouches incluses', rest: '— toute modification supplémentaire sera facturée.' },
-                { bold: 'Livraison finale', rest: 'réception et validation des livrables selon le devis.' },
-                { bold: 'Garantie & Support', rest: 'conformité et assistance technique sur les travaux livrés.' },
-              ]).map((c, i) => (
+              {conditions.map((c, i) => (
                 <div key={i} className="flex items-start gap-[0.7cqw]">
                   <div className="w-[0.3cqw] h-[1.5cqw] bg-accent/60 rounded-full mt-[0.3cqw] shrink-0" />
                   <p className="text-[1.1cqw] text-slate-500 font-medium leading-snug">

@@ -27,10 +27,13 @@ import {
   ChevronRight,
   Pencil,
   MapPin,
-  PackageOpen
+  PackageOpen,
+  Printer,
+  Globe
 } from 'lucide-react';
 import { format } from 'date-fns';
-import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY } from './types';
+import { Proforma, ProformaItem, CompanyInfo, ClientInfo, DEFAULT_COMPANY, BusinessType } from './types';
+import { getAcompteRate } from './lib/conditions';
 import Login from './Login';
 import Register from './Register';
 import SupabaseStatus from './components/SupabaseStatus';
@@ -240,6 +243,7 @@ export default function App() {
 
   const [currentId, setCurrentId] = useState<string>(generateId);
   const [docType, setDocType] = useState<'PROFORMA' | 'FACTURE'>('PROFORMA');
+  const [businessType, setBusinessType] = useState<BusinessType>('GRAPHISME');
   const [client, setClient] = useState<ClientInfo>({ name: '', phone: '' });
   const [items, setItems] = useState<ProformaItem[]>([]);
   const [proformaNumber, setProformaNumber] = useState<string>('');
@@ -361,6 +365,7 @@ export default function App() {
         handleExport({
           id: viewingHistoryId || currentId,
           type: docType,
+          businessType,
           number: proformaNumber,
           date: proformaDate,
           client,
@@ -375,7 +380,7 @@ export default function App() {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [client, items, viewingHistoryId, currentId, docType, proformaNumber, proformaDate, total, discountPercent]);
+  }, [client, items, viewingHistoryId, currentId, docType, businessType, proformaNumber, proformaDate, total, discountPercent]);
 
   const handleLogin = async (email: string, password: string) => {
     // La connexion est déjà gérée dans Login.tsx
@@ -497,6 +502,7 @@ export default function App() {
     const proformaData = {
       id: viewingHistoryId || currentId,
       type: docType,
+      businessType,
       number: proformaNumber,
       date: proformaDate,
       client,
@@ -606,7 +612,10 @@ export default function App() {
   };
 
   const handleWhatsApp = (p: Proforma) => {
-    const acompteMention = p.type === 'PROFORMA' ? ` (Acompte 70% : ${Math.round(p.total * 0.70).toLocaleString()} FCFA)` : '';
+    const bType = p.businessType || businessType;
+    const acomptePct = getAcompteRate(bType);
+    const acompteVal = Math.round(p.total * (acomptePct / 100));
+    const acompteMention = p.type === 'PROFORMA' ? ` (Acompte ${acomptePct}% : ${acompteVal.toLocaleString()} FCFA)` : '';
     const text = `Bonjour ${(p.client.name || 'Client').toUpperCase()},\n\nVoici votre ${p.type === 'PROFORMA' ? 'devis' : 'facture'} N° ${p.number} d'un montant de ${p.total.toLocaleString()} FCFA.${acompteMention}\n\nCordialement, ${companyInfo.name}.`;
     const encodedText = encodeURIComponent(text);
     const phone = client.phone.replace(/\D/g, '');
@@ -661,6 +670,7 @@ export default function App() {
 
     setViewingHistoryId(proformaToLoad.id);
     setDocType(proformaToLoad.type || 'PROFORMA');
+    setBusinessType(proformaToLoad.businessType || 'GRAPHISME');
     setClient(proformaToLoad.client);
     setItems(proformaToLoad.items);
     setDiscountPercent(proformaToLoad.discountPercent || 0);
@@ -771,6 +781,7 @@ export default function App() {
             onClick={() => handleExport({
               id: viewingHistoryId || currentId,
               type: docType,
+              businessType,
               number: proformaNumber,
               date: proformaDate,
               client,
@@ -926,6 +937,79 @@ export default function App() {
               >
                 <span>Facture Définitive</span>
               </button>
+            </div>
+
+            {/* Sélecteur d'Activité / Métier (Conditions adaptées) */}
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers size={13} className="text-primary" />
+                  Activité & Conditions
+                </span>
+                <span className={`text-[9.5px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                  businessType === 'PRINT' 
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200/80'
+                    : businessType === 'WEB'
+                    ? 'bg-blue-50 text-blue-700 border border-blue-200/80'
+                    : 'bg-purple-50 text-purple-700 border border-purple-200/80'
+                }`}>
+                  {businessType === 'PRINT' ? 'Mode Print' : businessType === 'WEB' ? 'Mode Web' : 'Mode Graphisme'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/80 rounded-xl border border-slate-200/70">
+                <button
+                  type="button"
+                  onClick={() => setBusinessType('GRAPHISME')}
+                  className={`py-2 px-1.5 text-xs font-bold rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    businessType === 'GRAPHISME'
+                      ? 'bg-white text-purple-900 shadow-xs ring-1 ring-purple-500/20 font-black'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                  }`}
+                  title="Conception graphique, logos, identités visuelles"
+                >
+                  <Sparkles size={13} className={businessType === 'GRAPHISME' ? 'text-purple-600' : 'text-slate-400'} />
+                  <span>Graphisme</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBusinessType('PRINT')}
+                  className={`py-2 px-1.5 text-xs font-bold rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    businessType === 'PRINT'
+                      ? 'bg-white text-amber-900 shadow-xs ring-1 ring-amber-500/20 font-black'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                  }`}
+                  title="Impression & tirage physique (BAT, tolérance CMJN, délais)"
+                >
+                  <Printer size={13} className={businessType === 'PRINT' ? 'text-amber-600' : 'text-slate-400'} />
+                  <span>Impression</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setBusinessType('WEB')}
+                  className={`py-2 px-1.5 text-xs font-bold rounded-lg transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                    businessType === 'WEB'
+                      ? 'bg-white text-blue-900 shadow-xs ring-1 ring-blue-500/20 font-black'
+                      : 'text-slate-500 hover:text-slate-900 hover:bg-white/50'
+                  }`}
+                  title="Sites web & solutions digitales (cahier des charges, recette, codes)"
+                >
+                  <Globe size={13} className={businessType === 'WEB' ? 'text-blue-600' : 'text-slate-400'} />
+                  <span>Web & App</span>
+                </button>
+              </div>
+
+              {/* Rappel des conditions spécifiques appliquées */}
+              <div className="bg-slate-50/80 rounded-lg p-2 text-[10.5px] text-slate-600 flex items-start gap-1.5 border border-slate-100">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent mt-1 shrink-0" />
+                <span className="leading-tight">
+                  {businessType === 'PRINT' && <span><strong>Print :</strong> Validation BAT obligatoire, tolérance chromie CMJN et délais de tirage.</span>}
+                  {businessType === 'WEB' && <span><strong>Web :</strong> Cahier des charges fixe, recette 30j offerte, accès et sources au solde.</span>}
+                  {businessType === 'GRAPHISME' && <span><strong>Graphisme :</strong> 2 retouches incluses, acompte de démarrage et cession des droits.</span>}
+                </span>
+              </div>
             </div>
 
             {/* Carte 1: Informations Client & Document */}
@@ -1234,8 +1318,8 @@ export default function App() {
               </div>
               {docType === 'PROFORMA' && total > 0 && (
                 <div className="flex justify-between items-center text-xs text-amber-800 bg-amber-50/80 border border-amber-200/80 rounded-xl px-3 py-2 mt-2 font-medium">
-                  <span className="font-bold uppercase text-[10px] tracking-wider text-amber-700">Acompte exigé (70%)</span>
-                  <span className="font-mono font-black text-amber-900 text-sm">{Math.round(total * 0.70).toLocaleString()} F CFA</span>
+                  <span className="font-bold uppercase text-[10px] tracking-wider text-amber-700">Acompte exigé ({getAcompteRate(businessType)}%)</span>
+                  <span className="font-mono font-black text-amber-900 text-sm">{Math.round(total * (getAcompteRate(businessType) / 100)).toLocaleString()} F CFA</span>
                 </div>
               )}
             </div>
@@ -1264,6 +1348,7 @@ export default function App() {
         <A4Preview 
           companyInfo={companyInfo}
           docType={docType}
+          businessType={businessType}
           proformaDate={proformaDate}
           proformaNumber={proformaNumber}
           client={client}

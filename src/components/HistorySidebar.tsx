@@ -274,6 +274,17 @@ export const HistorySidebar: React.FC<HistorySidebarProps> = ({
                           }`}>
                             {isProforma ? 'Devis' : 'Facture'}
                           </span>
+                          {p.businessType && (
+                            <span className={`text-[8.5px] font-bold px-1.5 py-0.2 rounded-full uppercase tracking-wider ${
+                              p.businessType === 'PRINT'
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200/60'
+                                : p.businessType === 'WEB'
+                                ? 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                                : 'bg-purple-50 text-purple-700 border border-purple-200/60'
+                            }`}>
+                              {p.businessType === 'PRINT' ? 'Print' : p.businessType === 'WEB' ? 'Web' : 'Design'}
+                            </span>
+                          )}
                           <span className="font-mono text-[11px] font-bold text-slate-500">
                             #{p.number}
                           </span>

@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Proforma, CompanyInfo } from '../types';
+import { Proforma, CompanyInfo, BusinessType } from '../types';
 import { createError, handleError, ErrorCodes, AppError } from './errors';
 import { getCache, setCache, invalidateCache, invalidateCacheByPrefix } from './cache';
 import { perfMonitor } from './performance';
@@ -227,10 +227,10 @@ export async function loadProformas(userId: string, limit: number = 20): Promise
 
     perfMonitor.start('supabase_proformas_query');
     
-    // ⚡ OPTIMISATION: Charger uniquement les champs essentiels (pas les items complets)
+    // ⚡ OPTIMISATION: Charger les champs essentiels ainsi que les items pour déduire le type d'activité
     const { data, error } = await supabase
       .from('proformas')
-      .select('id, type, number, date, client_name, client_phone, discount_percent, total')
+      .select('id, type, number, date, client_name, client_phone, discount_percent, total, items')
       .eq('user_id', userId)
       .order('date', { ascending: false })
       .limit(limit);
@@ -248,20 +248,35 @@ export async function loadProformas(userId: string, limit: number = 20): Promise
       return [];
     }
 
-    // Convertir les données Supabase vers le format Proforma (sans items pour l'instant)
-    const proformas = data.map(item => ({
-      id: item.id,
-      type: item.type as 'PROFORMA' | 'FACTURE',
-      number: item.number,
-      date: item.date,
-      client: {
-        name: item.client_name,
-        phone: item.client_phone || ''
-      },
-      items: [], // ⚡ Items chargés à la demande
-      discountPercent: item.discount_percent || 0,
-      total: item.total
-    }));
+    // Convertir les données Supabase vers le format Proforma (sans items complets pour alléger)
+    const proformas: Proforma[] = data.map(item => {
+      let bType: BusinessType = 'GRAPHISME';
+      try {
+        const rawItems = typeof item.items === 'string' ? JSON.parse(item.items) : item.items;
+        if (Array.isArray(rawItems) && rawItems[0]?._businessType) {
+          bType = rawItems[0]._businessType;
+        } else if (rawItems && !Array.isArray(rawItems) && rawItems.businessType) {
+          bType = rawItems.businessType;
+        }
+      } catch {
+        // Fallback standard
+      }
+
+      return {
+        id: item.id,
+        type: item.type as 'PROFORMA' | 'FACTURE',
+        businessType: bType,
+        number: item.number,
+        date: item.date,
+        client: {
+          name: item.client_name,
+          phone: item.client_phone || ''
+        },
+        items: [], // ⚡ Items chargés à la demande
+        discountPercent: item.discount_percent || 0,
+        total: item.total
+      };
+    });
 
     // ⚡ OPTIMISATION: Mettre en cache avec TTL de 5 minutes
     setCache(cacheKey, proformas, 5 * 60 * 1000);
@@ -289,16 +304,31 @@ export async function loadProformaDetails(proformaId: string): Promise<Proforma 
       return null;
     }
 
+    const rawItems = typeof data.items === 'string' ? JSON.parse(data.items) : data.items;
+    let businessType: BusinessType = (data as any).business_type || 'GRAPHISME';
+    let cleanItems: any[] = [];
+
+    if (Array.isArray(rawItems)) {
+      if (rawItems.length > 0 && rawItems[0]._businessType) {
+        businessType = rawItems[0]._businessType;
+      }
+      cleanItems = rawItems.map(({ _businessType, ...rest }) => rest);
+    } else if (rawItems && typeof rawItems === 'object' && Array.isArray((rawItems as any).items)) {
+      businessType = (rawItems as any).businessType || 'GRAPHISME';
+      cleanItems = (rawItems as any).items;
+    }
+
     return {
       id: data.id,
       type: data.type as 'PROFORMA' | 'FACTURE',
+      businessType,
       number: data.number,
       date: data.date,
       client: {
         name: data.client_name,
         phone: data.client_phone || ''
       },
-      items: typeof data.items === 'string' ? JSON.parse(data.items) : data.items,
+      items: cleanItems,
       discountPercent: data.discount_percent || 0,
       total: data.total
     };
@@ -315,6 +345,13 @@ export async function saveProforma(
   try {
     console.log('💾 Sauvegarde proforma...', proforma.number);
 
+    // Conserver businessType dans les items pour persistance sans dépendance à une migration SQL
+    const bType = proforma.businessType || 'GRAPHISME';
+    const itemsWithMeta = (proforma.items || []).map((item, idx) => ({
+      ...item,
+      ...(idx === 0 ? { _businessType: bType } : {})
+    }));
+
     const dataToInsert = {
       id: proforma.id,
       user_id: userId,
@@ -323,7 +360,7 @@ export async function saveProforma(
       date: proforma.date,
       client_name: proforma.client.name,
       client_phone: proforma.client.phone || '',
-      items: JSON.stringify(proforma.items),
+      items: JSON.stringify(itemsWithMeta),
       discount_percent: proforma.discountPercent || 0,
       total: proforma.total
     };
