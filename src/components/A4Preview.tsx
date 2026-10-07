@@ -227,26 +227,37 @@ export default function A4Preview({
         <div className="relative z-10 flex-1 overflow-hidden" style={{ paddingLeft: '8%', paddingRight: '8%' }}>
           <table className="w-full border-collapse text-[1.6cqw]">
             <thead>
-              <tr>
-                <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-left uppercase tracking-wider text-[1.1cqw] rounded-l-[1cqw]">
-                  Description
-                </th>
-                <th className="bg-primary text-white py-[1.6cqw] px-[1.2cqw] font-bold text-center w-[9cqw] uppercase tracking-wider text-[1.1cqw]">
-                  Qté
-                </th>
-                <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-right w-[15cqw] uppercase tracking-wider text-[1.1cqw]">
-                  Prix unit.
-                </th>
-                <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-right w-[15cqw] uppercase tracking-wider text-[1.1cqw] rounded-r-[1cqw]">
-                  Total
-                </th>
-              </tr>
+              {businessType === 'WEB' ? (
+                <tr>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-left uppercase tracking-wider text-[1.1cqw] rounded-l-[1cqw]">
+                    Prestations & Livrables
+                  </th>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[2.5cqw] font-bold text-right w-[24cqw] uppercase tracking-wider text-[1.1cqw] rounded-r-[1cqw]">
+                    Montant
+                  </th>
+                </tr>
+              ) : (
+                <tr>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-left uppercase tracking-wider text-[1.1cqw] rounded-l-[1cqw]">
+                    Description
+                  </th>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[1.2cqw] font-bold text-center w-[9cqw] uppercase tracking-wider text-[1.1cqw]">
+                    Qté
+                  </th>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-right w-[15cqw] uppercase tracking-wider text-[1.1cqw]">
+                    Prix unit.
+                  </th>
+                  <th className="bg-primary text-white py-[1.6cqw] px-[2cqw] font-bold text-right w-[15cqw] uppercase tracking-wider text-[1.1cqw] rounded-r-[1cqw]">
+                    Total
+                  </th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {items.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-[4cqw] px-[2cqw] text-center text-slate-300 italic text-[1.2cqw]">
-                    Aucune prestation ajoutée
+                  <td colSpan={businessType === 'WEB' ? 2 : 4} className="py-[4cqw] px-[2cqw] text-center text-slate-300 italic text-[1.2cqw]">
+                    {businessType === 'WEB' ? 'Aucune prestation web ajoutée' : 'Aucune prestation ajoutée'}
                   </td>
                 </tr>
               ) : (
@@ -255,13 +266,17 @@ export default function A4Preview({
                     <td className="py-[1.2cqw] px-[2cqw] text-slate-700 font-medium">
                       {item.description || 'Sans description'}
                     </td>
-                    <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-mono font-bold">
-                      {item.quantity}
-                    </td>
-                    <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-mono font-semibold whitespace-nowrap tabular-nums">
-                      {item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
-                    </td>
-                    <td className="py-[1.2cqw] px-[2cqw] text-right font-mono font-black text-primary whitespace-nowrap tabular-nums">
+                    {businessType !== 'WEB' && (
+                      <>
+                        <td className="py-[1.2cqw] px-[1.2cqw] text-center text-primary font-mono font-bold">
+                          {item.quantity}
+                        </td>
+                        <td className="py-[1.2cqw] px-[2cqw] text-right text-slate-400 font-mono font-semibold whitespace-nowrap tabular-nums">
+                          {item.unitPrice.toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
+                        </td>
+                      </>
+                    )}
+                    <td className="py-[1.2cqw] px-[2.5cqw] text-right font-mono font-black text-primary whitespace-nowrap tabular-nums">
                       {(item.quantity * item.unitPrice).toLocaleString('fr-FR').replace(/[\u202f\u00a0\s]/g, ' ')} F
                     </td>
                   </tr>

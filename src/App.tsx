@@ -1182,9 +1182,13 @@ export default function App() {
                     <PackageOpen size={20} className="text-secondary" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-800">Aucune prestation ajoutée</p>
+                    <p className="text-xs font-bold text-slate-800">
+                      {businessType === 'WEB' ? 'Aucune prestation web ajoutée' : 'Aucune prestation ajoutée'}
+                    </p>
                     <p className="text-[11px] text-slate-400 mt-0.5">
-                      Définissez la description, la quantité et le prix unitaire en un clic.
+                      {businessType === 'WEB' 
+                        ? 'Définissez la prestation et son montant forfaitaire en un clic.'
+                        : 'Définissez la description, la quantité et le prix unitaire en un clic.'}
                     </p>
                   </div>
                   <button
@@ -1193,7 +1197,7 @@ export default function App() {
                     className="mt-2 px-4 py-2 bg-primary hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                   >
                     <Plus size={14} />
-                    <span>Ajouter un article ou une prestation</span>
+                    <span>{businessType === 'WEB' ? 'Ajouter une prestation web' : 'Ajouter un article ou une prestation'}</span>
                   </button>
                 </div>
               ) : (
@@ -1217,9 +1221,15 @@ export default function App() {
                                 {item.description || 'Sans description'}
                               </p>
                             </div>
-                            <p className="text-[11px] text-slate-400 font-medium mt-1 pl-7">
-                              <span className="font-semibold text-slate-700 font-mono">{item.quantity}</span> × {item.unitPrice.toLocaleString()} F CFA
-                            </p>
+                            {businessType === 'WEB' ? (
+                              <p className="text-[11px] text-slate-400 font-medium mt-0.5 pl-7">
+                                Prestation forfaitaire
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-slate-400 font-medium mt-1 pl-7">
+                                <span className="font-semibold text-slate-700 font-mono">{item.quantity}</span> × {item.unitPrice.toLocaleString()} F CFA
+                              </p>
+                            )}
                           </div>
 
                           <div className="flex items-center gap-3 shrink-0">
@@ -1396,6 +1406,7 @@ export default function App() {
       onClose={() => setIsItemModalOpen(false)}
       onSave={handleSaveItemFromModal}
       editingItem={editingItem}
+      businessType={businessType}
     />
 
     {/* Mobile Totals Bar */}

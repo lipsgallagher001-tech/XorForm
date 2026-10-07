@@ -314,17 +314,36 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
   const footerH = 14 + (company.services ? 5 : 0) + (hasSig ? maxImgH + 6 : 0);
   const bottomReserved = totalsBlockH + 28 + 42 + footerH; // totaux + lettres + conditions + footer
 
-  const tableData = proforma.items.map(item => [
+  const isWebMode = proforma.businessType === 'WEB';
+
+  const tableHead = isWebMode
+    ? [['Prestations & Livrables', 'Montant']]
+    : [['Description', 'Qte', 'Prix unit.', 'Total']];
+
+  const tableData = proforma.items.map(item => isWebMode ? [
+    cleanText(item.description || 'Sans description'),
+    cleanText(fmtCur(item.quantity * item.unitPrice)),
+  ] : [
     cleanText(item.description || 'Sans description'),
     item.quantity.toString(),
     cleanText(fmtCur(item.unitPrice)),
     cleanText(fmtCur(item.quantity * item.unitPrice)),
   ]);
 
+  const tableColStyles = isWebMode ? {
+    0: { cellWidth: 'auto' as const, textColor: [51, 65, 85] as [number, number, number] },
+    1: { halign: 'right' as const, cellWidth: 42, textColor: [...PRIMARY] as [number, number, number], fontStyle: 'bold' as const },
+  } : {
+    0: { cellWidth: 'auto' as const, textColor: [51, 65, 85] as [number, number, number] },
+    1: { halign: 'center' as const, cellWidth: 18, textColor: [...PRIMARY] as [number, number, number], fontStyle: 'bold' as const },
+    2: { halign: 'right' as const,  cellWidth: 32, textColor: [...SLATE400] as [number, number, number] },
+    3: { halign: 'right' as const,  cellWidth: 32, textColor: [...PRIMARY] as [number, number, number], fontStyle: 'bold' as const },
+  };
+
   autoTable(doc, {
     startY: y,
     margin: { left: ML, right: MR },
-    head: [['Description', 'Qté', 'Prix unit.', 'Total']],
+    head: tableHead,
     body: tableData,
     theme: 'plain',
     headStyles: {
@@ -343,12 +362,7 @@ const generatePDFInternal = async (proforma: Proforma, company: CompanyInfo): Pr
       lineWidth: 0,
     },
     alternateRowStyles: { fillColor: false },
-    columnStyles: {
-      0: { cellWidth: 'auto', textColor: [51, 65, 85] },
-      1: { halign: 'center', cellWidth: 18, textColor: [...PRIMARY], fontStyle: 'bold' },
-      2: { halign: 'right',  cellWidth: 32, textColor: [...SLATE400] },
-      3: { halign: 'right',  cellWidth: 32, textColor: [...PRIMARY], fontStyle: 'bold' },
-    },
+    columnStyles: tableColStyles,
     willDrawCell: (data) => {
       // Header navy arrondi
       if (data.section === 'head' && data.row.index === 0 && data.column.index === 0) {

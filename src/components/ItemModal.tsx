@@ -5,21 +5,24 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Plus, Check, Layers, AlertCircle } from 'lucide-react';
-import { ProformaItem } from '../types';
+import { ProformaItem, BusinessType } from '../types';
 
 interface ItemModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSave: (item: Omit<ProformaItem, 'id'>, editId?: string) => void;
   editingItem?: ProformaItem | null;
+  businessType?: BusinessType;
 }
 
 export const ItemModal: React.FC<ItemModalProps> = ({
   isOpen,
   onClose,
   onSave,
-  editingItem
+  editingItem,
+  businessType = 'GRAPHISME'
 }) => {
+  const isWeb = businessType === 'WEB';
   const [description, setDescription] = useState('');
   const [quantity, setQuantity] = useState<number>(1);
   const [unitPrice, setUnitPrice] = useState<string>('');
@@ -31,7 +34,7 @@ export const ItemModal: React.FC<ItemModalProps> = ({
     if (isOpen) {
       if (editingItem) {
         setDescription(editingItem.description);
-        setQuantity(editingItem.quantity || 1);
+        setQuantity(isWeb ? 1 : (editingItem.quantity || 1));
         setUnitPrice(editingItem.unitPrice ? editingItem.unitPrice.toString() : '');
       } else {
         setDescription('');
@@ -42,31 +45,32 @@ export const ItemModal: React.FC<ItemModalProps> = ({
       // Autofocus
       setTimeout(() => inputRef.current?.focus(), 80);
     }
-  }, [isOpen, editingItem]);
+  }, [isOpen, editingItem, isWeb]);
 
   if (!isOpen) return null;
 
   const parsedPrice = parseFloat(unitPrice) || 0;
-  const lineTotal = quantity * parsedPrice;
+  const effectiveQuantity = isWeb ? 1 : quantity;
+  const lineTotal = effectiveQuantity * parsedPrice;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!description.trim()) {
-      setError('Veuillez saisir une description pour la prestation ou l\'article.');
+      setError(isWeb ? 'Veuillez saisir un intitulé pour la prestation.' : 'Veuillez saisir une description pour la prestation ou l\'article.');
       return;
     }
-    if (quantity < 1) {
+    if (!isWeb && effectiveQuantity < 1) {
       setError('La quantité doit être d\'au moins 1.');
       return;
     }
     if (parsedPrice < 0) {
-      setError('Le prix unitaire ne peut pas être négatif.');
+      setError('Le montant ne peut pas être négatif.');
       return;
     }
 
     onSave({
       description: description.trim(),
-      quantity,
+      quantity: effectiveQuantity,
       unitPrice: parsedPrice
     }, editingItem ? editingItem.id : undefined);
 
@@ -92,10 +96,18 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             </div>
             <div>
               <h3 className="font-extrabold text-base text-slate-900">
-                {editingItem ? 'Modifier la prestation' : 'Ajouter un article ou une prestation'}
+                {editingItem 
+                  ? 'Modifier la prestation' 
+                  : isWeb 
+                  ? 'Ajouter une prestation ou un livrable web' 
+                  : 'Ajouter un article ou une prestation'}
               </h3>
               <p className="text-[11px] text-muted-foreground">
-                {editingItem ? 'Mettez à jour les détails de la ligne' : 'Renseignez la description, la quantité et le prix unitaire'}
+                {editingItem 
+                  ? 'Mettez à jour les détails de la ligne' 
+                  : isWeb 
+                  ? 'Renseignez l\'intitulé de la prestation et son montant forfaitaire' 
+                  : 'Renseignez la description, la quantité et le prix unitaire'}
               </p>
             </div>
           </div>
@@ -121,12 +133,12 @@ export const ItemModal: React.FC<ItemModalProps> = ({
           {/* Description */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-700">
-              Description de la prestation / article *
+              {isWeb ? 'Prestation & Livrable *' : 'Description de la prestation / article *'}
             </label>
             <input 
               ref={inputRef}
               type="text"
-              placeholder="Ex: Conception logo & charte graphique..."
+              placeholder={isWeb ? "Ex: Développement du site vitrine responsive 5 pages..." : "Ex: Conception logo & charte graphique..."}
               value={description}
               onChange={e => {
                 setDescription(e.target.value);
@@ -136,43 +148,11 @@ export const ItemModal: React.FC<ItemModalProps> = ({
             />
           </div>
 
-          {/* Quantité et Prix unitaire */}
-          <div className="grid grid-cols-2 gap-3">
-            {/* Quantité */}
+          {/* Saisie Prix : Mode Web (Forfait direct) vs Autres modes (Quantité + Prix unitaire) */}
+          {isWeb ? (
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">
-                Quantité *
-              </label>
-              <div className="flex items-center border border-border rounded-xl bg-slate-50/70 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 overflow-hidden transition-all">
-                <button
-                  type="button"
-                  onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                  className="px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm cursor-pointer select-none"
-                >
-                  -
-                </button>
-                <input 
-                  type="number"
-                  min="1"
-                  inputMode="numeric"
-                  value={quantity}
-                  onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full py-2 text-center text-xs font-mono font-bold outline-none bg-transparent"
-                />
-                <button
-                  type="button"
-                  onClick={() => setQuantity(prev => prev + 1)}
-                  className="px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm cursor-pointer select-none"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Prix unitaire */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700">
-                Prix unitaire *
+                Montant forfaitaire *
               </label>
               <div className="flex items-center border border-border rounded-xl bg-slate-50/70 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 overflow-hidden transition-all">
                 <input 
@@ -182,18 +162,74 @@ export const ItemModal: React.FC<ItemModalProps> = ({
                   placeholder="0"
                   value={unitPrice}
                   onChange={e => setUnitPrice(e.target.value)}
-                  className="w-full px-3 py-2 text-right text-xs font-mono font-bold outline-none bg-transparent"
+                  className="w-full px-3.5 py-2.5 text-right text-xs font-mono font-bold outline-none bg-transparent"
                 />
-                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-2 border-l border-border shrink-0 select-none">
-                  FCFA
+                <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-3 py-2.5 border-l border-border shrink-0 select-none">
+                  F CFA
                 </span>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {/* Quantité */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Quantité *
+                </label>
+                <div className="flex items-center border border-border rounded-xl bg-slate-50/70 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 overflow-hidden transition-all">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                    className="px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm cursor-pointer select-none"
+                  >
+                    -
+                  </button>
+                  <input 
+                    type="number"
+                    min="1"
+                    inputMode="numeric"
+                    value={quantity}
+                    onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full py-2 text-center text-xs font-mono font-bold outline-none bg-transparent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(prev => prev + 1)}
+                    className="px-3 py-2 text-slate-500 hover:text-slate-900 hover:bg-slate-100 font-bold text-sm cursor-pointer select-none"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Prix unitaire */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-700">
+                  Prix unitaire *
+                </label>
+                <div className="flex items-center border border-border rounded-xl bg-slate-50/70 focus-within:bg-white focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/15 overflow-hidden transition-all">
+                  <input 
+                    type="number"
+                    min="0"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={unitPrice}
+                    onChange={e => setUnitPrice(e.target.value)}
+                    className="w-full px-3 py-2 text-right text-xs font-mono font-bold outline-none bg-transparent"
+                  />
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-2 border-l border-border shrink-0 select-none">
+                    FCFA
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Carte Récapitulative du Total de la Ligne */}
           <div className="p-3.5 rounded-2xl bg-slate-100/70 border border-slate-200 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-600">Montant total pour cette ligne</span>
+            <span className="text-xs font-bold text-slate-600">
+              {isWeb ? 'Montant de la prestation' : 'Montant total pour cette ligne'}
+            </span>
             <span className="font-mono font-black text-sm text-slate-900">
               {lineTotal.toLocaleString()} <span className="text-[10px] text-slate-500 font-bold">F CFA</span>
             </span>
